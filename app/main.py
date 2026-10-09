@@ -853,3 +853,218 @@ async def put_tools_settings(req: ToolsSettingsRequest):
     }
     save_settings()
     return JSONResponse({"ok": True})
+
+# ============ 路由：外观（主题 / 背景图）============
+# 主题存 localStorage，背景图存 data/ 目录（可记忆）
+
+BACKGROUND_FILE = DATA_DIR / "background.json"
+
+
+class AppearanceRequest(BaseModel):
+    theme: str = ""          # "dark" / "light" / ""
+    background: str = ""     # data URL（base64），空字符串表示清除
+    auto_color: bool = True  # 是否从背景图取主色调
+
+
+@app.get("/api/appearance")
+async def get_appearance():
+    data = load_json(BACKGROUND_FILE, {"theme": "light", "background": ""})
+    return JSONResponse({
+        "theme": data.get("theme", "light"),
+        "background": data.get("background", ""),
+    })
+
+
+@app.put("/api/appearance")
+async def put_appearance(req: AppearanceRequest):
+    # 限制背景图大小（base64 后约 8MB 数据对应 ~6MB 原图）
+    bg = req.background or ""
+    if len(bg) > 9 * 1024 * 1024:
+        return JSONResponse({"error": "背景图太大，请选择 6MB 以内的图片"}, status_code=400)
+    data = {
+        "theme": req.theme.strip() or "light",
+        "background": bg,
+    }
+    save_json(BACKGROUND_FILE, data)
+    return JSONResponse({"ok": True})
+
+
+@app.delete("/api/appearance/background")
+async def delete_background():
+    data = load_json(BACKGROUND_FILE, {"theme": "light", "background": ""})
+    data["background"] = ""
+    save_json(BACKGROUND_FILE, data)
+    return JSONResponse({"ok": True})
+
+# ============ CVE 查询（真实数据来自 NVD 公开 API）============
+
+NVD_API = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+
+
+def clean_version(v: str) -> str:
+    """把 2.4.49p1 / 2.4.49-1 / 2.4.49 (Ubuntu) 之类归一成 2.4.49"""
+    m = re.match(r"^(\d+(?:\.\d+){1,3})", (v or "").strip())
+    return m.group(1) if m else ""
+
+
+# 版本号里常见但无意义的“产品名”，要去掉
+_PRODUCT_NOISE = re.compile(r"\b(httpd|server|service|protocol|release|version|unix|ubuntu|debian|windows|linux|generic)\b", re.I)
+
+
+def normalize_product(name: str) -> str:
+    """把产品名清洗成适合查 NVD 的关键词，例如 'Apache httpd' -> 'Apache'"""
+    name = re.sub(r"\(.*?\)", " ", name or "")          # 去掉括号内容
+    name = _PRODUCT_NOISE.sub(" ", name)
+    name = re.sub(r"[^A-Za-z0-9_.+\- ]+", " ", name)
+    tokens = [t for t in name.split() if t and not t.isdigit()]
+    # 最多保留前两个词，太长反而搜不到
+    return " ".join(tokens[:2]).strip()
+
+
+def extract_products_from_output(tool: str, output: str) -> list:
+    """从扫描输出里提取「产品 + 版本」候选，用于查 CVE。返回 [{product, version, evidence}]"""
+    found = []
+    seen = set()
+
+    def add(product, version, evidence):
+        product = normalize_product(product)
+        version = clean_version(version)
+        if not product or not version or len(product) < 2:
+            return
+        key = (product.lower(), version)
+        if key in seen:
+            return
+        seen.add(key)
+        found.append({"product": product, "version": version, "evidence": evidence.strip()[:120]})
+
+    for raw in (output or "").splitlines():
+        line = raw.strip()
+        if not line:
+            continue
+
+        # Nmap 风格: 80/tcp open  http    Apache httpd 2.4.49 ((Unix))
+        m = re.match(r"^\d+/\w+\s+open\s+\S+\s+(.+)$", line)
+        if m:
+            rest = m.group(1).strip()
+            tokens = rest.split()
+            if len(tokens) >= 2:
+                # 从前往后找第一个版本号（那才是服务的真实版本）
+                for i in range(1, len(tokens)):
+                    if re.match(r"^v?\d+\.\d+", tokens[i]):
+                        name = " ".join(tokens[:i])
+                        add(name, tokens[i].lstrip("vV"), line)
+                        break
+            continue
+
+        # 通用: "Server: Apache/2.4.49" / "nginx/1.18.0"
+        m2 = re.search(r"([A-Za-z][A-Za-z0-9_.+\-]{1,30})/(v?\d+\.\d+(?:\.\d+)*)", line)
+        if m2:
+            add(m2.group(1), m2.group(2), line)
+            continue
+        m3 = re.search(r"^([A-Za-z][A-Za-z0-9_.+\-]{1,30})\s+[vV]?(\d+\.\d+(?:\.\d+)*)\b", line)
+        if m3:
+            add(m3.group(1), m3.group(2), line)
+
+    return found[:6]
+
+
+def query_nvd(keyword: str, timeout: int = 12) -> list:
+    """查询 NVD。返回 [{id, desc, score, severity, url}]，失败返回 []"""
+    try:
+        from urllib.parse import quote
+        url = NVD_API + "?keywordSearch=" + quote(keyword) + "&resultsPerPage=5"
+        req = urllib.request.Request(url, headers={
+            "User-Agent": "Intrusion-Console/1.0",
+            "Accept": "application/json",
+        })
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            data = json.loads(resp.read().decode("utf-8", "replace"))
+    except Exception:
+        return []
+
+    out = []
+    for item in (data.get("vulnerabilities") or []):
+        cve = item.get("cve") or {}
+        cid = cve.get("id")
+        if not cid:
+            continue
+        desc = ""
+        for d in (cve.get("descriptions") or []):
+            if d.get("lang") == "en":
+                desc = d.get("value", "")
+                break
+        score, severity = None, ""
+        metrics = cve.get("metrics") or {}
+        for mkey in ("cvssMetricV31", "cvssMetricV30", "cvssMetricV2"):
+            arr = metrics.get(mkey) or []
+            if arr:
+                cd = (arr[0].get("cvssData") or {})
+                score = cd.get("baseScore")
+                severity = cd.get("baseSeverity") or (arr[0].get("baseSeverity") or "")
+                break
+        out.append({
+            "id": cid,
+            "desc": (desc or "")[:400],
+            "score": score,
+            "severity": (severity or "").upper(),
+            "url": "https://nvd.nist.gov/vuln/detail/" + cid,
+        })
+    return out
+
+
+_nvd_last_call = [0.0]
+
+
+def query_nvd_throttled(keyword: str, timeout: int = 12) -> list:
+    """带限流的 NVD 查询：NVD 无 API Key 时约 6 秒 1 次，太快会被拒。"""
+    wait = 6.5 - (time.time() - _nvd_last_call[0])
+    if wait > 0:
+        time.sleep(min(wait, 7))
+    _nvd_last_call[0] = time.time()
+    return query_nvd(keyword, timeout=timeout)
+
+
+class CveRequest(BaseModel):
+    task_id: str
+
+
+@app.post("/api/cve/scan")
+async def cve_scan(req: CveRequest):
+    """从任务输出里提取产品特征，去 NVD 查真实 CVE。"""
+    rec = get_record(req.task_id)
+    if rec is None:
+        return JSONResponse({"error": "任务不存在"}, status_code=404)
+
+    output = "\n".join(rec.get("lines", []))
+    if not output.strip():
+        return JSONResponse({"matched": [], "queried": [], "note": "该任务没有输出内容"})
+
+    products = extract_products_from_output(rec.get("tool", ""), output)
+    if not products:
+        return JSONResponse({"matched": [], "queried": [], "note": "未能从输出中识别出可查询的产品/版本特征"})
+
+    queried, matched = [], []
+    seen_ids = set()
+    for p in products:
+        keyword = f"{p['product']} {p['version']}".strip()
+        queried.append(keyword)
+        for cve in query_nvd_throttled(keyword):
+            if cve["id"] in seen_ids:
+                continue
+            # 提高把握：描述里必须真的提到这个版本号，否则可能只是泛泛相关
+            ver = p["version"]
+            if ver and ver not in (cve.get("desc") or ""):
+                continue
+            seen_ids.add(cve["id"])
+            cve["matched_on"] = keyword
+            cve["evidence"] = p.get("evidence", "")
+            matched.append(cve)
+
+    # 按 CVSS 分数从高到低排
+    matched.sort(key=lambda x: (x.get("score") or 0), reverse=True)
+
+    return JSONResponse({
+        "matched": matched[:12],
+        "queried": queried,
+        "note": "" if matched else "未在 NVD 中匹配到相关 CVE",
+    })

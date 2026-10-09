@@ -14,6 +14,8 @@
       --text-dim: #6d7f9f;
       --line: rgba(150, 190, 255, 0.18);
       --line-bright: #5da8ff;
+      --accent: #5da8ff;
+      --accent-glow: #5da8ff;
       --glass: rgba(21, 32, 58, 0.5);
       --glass-strong: rgba(26, 38, 68, 0.6);
       --green: #41d07c;
@@ -23,6 +25,156 @@
       --purple: #c88ee0;
       --mono: "Consolas", "Cascadia Mono", "SF Mono", "Courier New", monospace;
     }
+
+    /* ===== 白色主题（覆盖变量）——强调色用黑色系 ===== */
+    body.theme-light {
+      --navy-deep: #eef1f6;
+      --text-bright: #14181f;
+      --text-body: #3d4553;
+      --text-dim: #6b7482;
+      --line: rgba(20, 30, 50, 0.14);
+      --line-bright: #14181f;
+      --glass: rgba(255, 255, 255, 0.55);
+      --glass-strong: rgba(255, 255, 255, 0.68);
+      --green: #1a8f52;
+      --red: #c92a2e;
+      --blue: #14181f;
+      --amber: #9a6b00;
+      --purple: #7a3fa8;
+    }
+    /* 白色主题：背景用浅色渐变 */
+    body.theme-light {
+      background-color: #eef1f6;
+      background-image:
+        radial-gradient(60% 45% at 50% -8%,  rgba(120, 150, 200, 0.20), transparent 62%),
+        radial-gradient(38% 32% at -6% 8%,   rgba(130, 160, 210, 0.16), transparent 60%),
+        radial-gradient(38% 32% at 106% 8%,  rgba(130, 160, 210, 0.16), transparent 60%),
+        radial-gradient(55% 42% at 50% 108%, rgba(120, 150, 200, 0.16), transparent 62%);
+    }
+    /* 白色主题：终端改浅色（白底深字） */
+    body.theme-light #output {
+      background: rgba(252, 253, 255, 0.85);
+      border-color: rgba(20, 30, 50, 0.12);
+      color: #2a3240;
+    }
+    body.theme-light .term-topbar { border-color: rgba(20,30,50,0.12); }
+
+    /* 白色主题：输入框/下拉改浅色 */
+    body.theme-light .pitem input,
+    body.theme-light .pitem select,
+    body.theme-light .modal input,
+    body.theme-light #target-input {
+      background: rgba(255, 255, 255, 0.85);
+      border-color: rgba(20, 30, 50, 0.16);
+      color: #14181f;
+    }
+    body.theme-light .pitem input::placeholder,
+    body.theme-light .modal input::placeholder { color: #98a1b0; }
+    body.theme-light select option { background: #ffffff; color: #14181f; }
+    body.theme-light .mini-btn { color: #3d4553; border-color: rgba(20,30,50,0.16); }
+    body.theme-light .mini-btn:hover { border-color: #14181f; color: #14181f; }
+    body.theme-light .icon-btn:hover { border-color: #14181f; color: #14181f; }
+    body.theme-light .tool-status-item {
+      border-color: rgba(20, 30, 50, 0.12); background: rgba(255, 255, 255, 0.55);
+    }
+    body.theme-light #stop-btn { color: #3d4553 !important; border-color: rgba(20,30,50,0.16) !important; }
+
+    /* ===== 白色主题 + 无壁纸：工具选项 & AI 解读按钮 用浅绿底白字 ===== */
+    /* 三个工具 tab */
+    body.theme-light:not(.has-wallpaper) .tool-tab {
+      color: #1f6b45;
+      background: rgba(168, 224, 190, 0.45);
+      border-color: rgba(120, 200, 155, 0.6);
+    }
+    body.theme-light:not(.has-wallpaper) .tool-tab:hover {
+      color: #ffffff;
+      background: rgba(112, 190, 145, 0.75);
+      border-color: rgba(90, 175, 125, 0.9);
+    }
+    body.theme-light:not(.has-wallpaper) .tool-tab.active {
+      color: #ffffff;
+      background: #6cbf8f;
+      border-color: #4ea877;
+    }
+
+    /* AI「生成解读」按钮 */
+    body.theme-light:not(.has-wallpaper) #interpret-btn {
+      color: #ffffff;
+      background: #6cbf8f;
+    }
+    body.theme-light:not(.has-wallpaper) #interpret-btn:hover { background: #5cb182; opacity: 1; }
+    body.theme-light:not(.has-wallpaper) #interpret-btn:disabled { background: #a8d8bd; color: rgba(255,255,255,0.85); }
+
+    /* 有壁纸时：工具选项 & 解读按钮跟壁纸走（半透明，露出壁纸原色） */
+    body.has-wallpaper .tool-tab {
+      background: rgba(255, 255, 255, 0.14);
+      border-color: rgba(255, 255, 255, 0.3);
+      color: rgba(255, 255, 255, 0.82);
+    }
+    body.has-wallpaper .tool-tab.active {
+      background: color-mix(in srgb, var(--accent) 55%, transparent);
+      border-color: var(--accent);
+      color: #ffffff;
+    }
+    body.has-wallpaper #interpret-btn {
+      background: color-mix(in srgb, var(--accent) 70%, transparent);
+      color: #ffffff;
+    }
+
+    /* ===== 设置了自定义壁纸时：去掉毛玻璃，直接显示原图 ===== */
+    body.has-wallpaper .glass {
+      background: rgba(10, 14, 22, 0.35);
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+    }
+    body.has-wallpaper.theme-light .glass {
+      background: rgba(255, 255, 255, 0.42);
+    }
+    /* 有壁纸时蒙层减淡，尽量露出原图 */
+    body.has-wallpaper #bg-veil.on { background: rgba(6, 12, 26, 0.28); }
+    body.has-wallpaper.theme-light #bg-veil.on { background: rgba(245, 248, 252, 0.32); }
+
+    /* ===== 自定义背景图层（居中、等比铺满）===== */
+    #bg-layer {
+      position: fixed; inset: 0; z-index: -2;
+      background-position: center center;
+      background-repeat: no-repeat;
+      background-size: cover;
+      display: none;
+    }
+    #bg-layer.on { display: block; }
+    /* 背景图上的暗化/亮化蒙层，保证前景可读 */
+    #bg-veil {
+      position: fixed; inset: 0; z-index: -1;
+      background: rgba(6, 12, 26, 0.55);
+      display: none;
+      transition: background .25s ease;
+    }
+    #bg-veil.on { display: block; }
+    body.theme-light #bg-veil.on { background: rgba(240, 244, 250, 0.62); }
+
+    /* ===== 外观弹窗 ===== */
+    .theme-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; margin: 0.6rem 0 0.2rem; }
+    .theme-card {
+      border: 1.5px solid var(--line); border-radius: 12px; padding: 0.8rem;
+      cursor: pointer; display: flex; flex-direction: column; gap: 0.5rem;
+      background: rgba(160, 195, 240, 0.05); transition: all .15s ease;
+    }
+    .theme-card:hover { border-color: var(--line-bright); }
+    .theme-card.selected { border-color: var(--line-bright); background: rgba(93, 168, 255, 0.14); }
+    body.theme-light .theme-card.selected { background: rgba(20, 30, 50, 0.08); }
+    .theme-preview {
+      height: 54px; border-radius: 8px; border: 1px solid rgba(150,190,255,0.2);
+      display: flex; align-items: center; justify-content: center; gap: 5px;
+    }
+    .theme-preview .dot { width: 10px; height: 10px; border-radius: 3px; }
+    .theme-card .tc-name { font-size: 0.85rem; color: var(--text-bright); text-align: center; }
+    .bg-row { display: flex; gap: 0.6rem; margin-top: 0.5rem; }
+    .bg-thumb {
+      margin-top: 0.7rem; height: 96px; border-radius: 10px; border: 1px solid var(--line);
+      background-size: cover; background-position: center; display: none;
+    }
+    .bg-thumb.on { display: block; }
 
     html, body { min-height: 100%; }
 
@@ -158,8 +310,8 @@
       transition: border-color .15s ease, box-shadow .15s ease;
     }
     .pitem input:focus, .pitem select:focus {
-      outline: none; border-color: var(--line-bright);
-      box-shadow: 0 0 0 3px rgba(93, 168, 255, 0.16), 0 0 16px rgba(64, 140, 255, 0.25);
+      outline: none; border-color: var(--accent);
+      box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 18%, transparent), 0 0 16px color-mix(in srgb, var(--accent) 30%, transparent);
     }
     .pitem input::placeholder { color: #52648a; }
     .checks { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; }
@@ -344,6 +496,48 @@
     .guidance-line { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px dashed rgba(90, 159, 224, 0.25); }
     .guidance-line .g-label { color: #9ec7f2; font-weight: 600; }
 
+    /* ===== CVE 面板 ===== */
+    .cve-panel { padding: 1rem 1.2rem; }
+    .cve-head { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin-bottom: 0.5rem; }
+    .cve-head .panel-title { margin-bottom: 0; }
+    .cve-btn {
+      padding: 0.4rem 1rem; font-size: 0.8rem; font-weight: 600; border: none; border-radius: 999px;
+      color: #ffffff; background: #6cbf8f; cursor: pointer; transition: all .15s ease;
+    }
+    .cve-btn:hover { background: #5cb182; }
+    .cve-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .cve-hint { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.8rem; line-height: 1.5; }
+    .cve-list { display: flex; flex-direction: column; gap: 0.7rem; }
+    .cve-empty { font-size: 0.85rem; color: var(--text-dim); padding: 0.6rem 0; }
+    .cve-card {
+      border: 1px solid var(--line); border-radius: 12px; padding: 0.85rem 1rem;
+      background: rgba(160, 195, 240, 0.05);
+    }
+    body.theme-light .cve-card { background: rgba(255, 255, 255, 0.6); }
+    .cve-card-top { display: flex; align-items: center; gap: 0.6rem; flex-wrap: wrap; margin-bottom: 0.4rem; }
+    .cve-id { font-family: var(--mono); font-size: 0.9rem; font-weight: 700; color: var(--text-bright); }
+    .cve-sev {
+      font-size: 0.68rem; font-weight: 700; padding: 0.12rem 0.5rem; border-radius: 999px; color: #fff;
+    }
+    .cve-sev.critical { background: #c62828; }
+    .cve-sev.high { background: #e06010; }
+    .cve-sev.medium { background: #b58900; }
+    .cve-sev.low { background: #4a7a44; }
+    .cve-sev.unknown { background: #6b7482; }
+    .cve-score { font-size: 0.72rem; color: var(--text-dim); }
+    .cve-desc { font-size: 0.82rem; color: var(--text-body); line-height: 1.6; margin-bottom: 0.5rem; }
+    .cve-meta { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.6rem; }
+    .cve-meta code { font-family: var(--mono); color: var(--line-bright); }
+    body.theme-light .cve-meta code { color: #1f6b45; }
+    .cve-links { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+    .cve-link {
+      font-size: 0.75rem; padding: 0.3rem 0.75rem; border-radius: 8px; text-decoration: none;
+      border: 1px solid var(--line); color: var(--text-body); transition: all .15s ease;
+    }
+    .cve-link:hover { border-color: var(--line-bright); color: var(--text-bright); }
+    .cve-link.primary { background: rgba(93, 168, 255, 0.14); border-color: rgba(93, 168, 255, 0.4); color: var(--line-bright); }
+    body.theme-light .cve-link.primary { background: rgba(108, 191, 143, 0.18); border-color: rgba(108, 191, 143, 0.5); color: #1f6b45; }
+
     .timeline-panel { padding: 1rem 1.2rem; }
     .timeline-panel .panel-title { margin-bottom: 0.6rem; }
     .timeline { display: flex; flex-direction: column; gap: 0.5rem; max-height: 240px; overflow-y: auto; }
@@ -478,8 +672,21 @@
       .timeline { max-height: 180px; }
     }
   </style>
+  <script>
+    // 尽早给 <body> 打上主题类（在 body 渲染前），避免加载时闪色。
+    // 默认白色；本地缓存里是深色才切成深色。
+    (function () {
+      try {
+        var t = localStorage.getItem('intrusion_theme') || 'light';
+        document.write('<body class="' + (t === 'dark' ? '' : 'theme-light') + '">');
+      } catch (e) {
+        document.write('<body class="theme-light">');
+      }
+    })();
+  </script>
 </head>
-<body>
+  <div id="bg-layer"></div>
+  <div id="bg-veil"></div>
   <div class="wrap">
     <!-- 顶栏 -->
     <div class="topbar">
@@ -507,6 +714,7 @@
         </div>
       </div>
       <div class="top-actions">
+        <button class="icon-btn" id="appearance-btn">外观</button>
         <button class="icon-btn" id="tools-settings-btn">工具路径</button>
         <button class="icon-btn" id="ai-settings-btn">AI 设置</button>
       </div>
@@ -600,6 +808,15 @@
           <div class="panel-title">全部任务时间线</div>
           <div class="timeline" id="timeline"></div>
         </div>
+
+        <div class="cve-panel glass">
+          <div class="cve-head">
+            <div class="panel-title">可能的 CVE 漏洞</div>
+            <button class="cve-btn" id="cve-btn">检测 CVE</button>
+          </div>
+          <div class="cve-hint">根据扫描结果中的产品/版本特征，查询 NVD 官方数据库。结果仅供参考，请自行核实。</div>
+          <div class="cve-list" id="cve-list"></div>
+        </div>
       </div>
     </div>
   </div>
@@ -631,6 +848,46 @@
       <div class="modal-actions">
         <button class="ghost" id="ai-cancel">取消</button>
         <button class="primary" id="ai-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 外观弹窗 -->
+  <div class="modal-mask" id="appearance-modal">
+    <div class="modal">
+      <h2>外观设置</h2>
+
+      <label style="margin-top:0.4rem;">主题</label>
+      <div class="theme-cards">
+        <div class="theme-card" id="theme-dark" data-theme="dark">
+          <div class="theme-preview" style="background:#0a1428;">
+            <span class="dot" style="background:#5da8ff;"></span>
+            <span class="dot" style="background:#41d07c;"></span>
+            <span class="dot" style="background:#e0b34a;"></span>
+          </div>
+          <div class="tc-name">深色</div>
+        </div>
+        <div class="theme-card" id="theme-light" data-theme="light">
+          <div class="theme-preview" style="background:#eef1f6;">
+            <span class="dot" style="background:#14181f;"></span>
+            <span class="dot" style="background:#6b7482;"></span>
+            <span class="dot" style="background:#9aa3b2;"></span>
+          </div>
+          <div class="tc-name">白色</div>
+        </div>
+      </div>
+
+      <label>自定义背景</label>
+      <div class="hint">选择一张本地图片作为背景（建议 6MB 以内）。主色调会取自这张图。</div>
+      <div class="bg-row">
+        <button class="ghost" id="bg-pick" style="flex:1;">选择图片</button>
+        <button class="ghost" id="bg-clear" style="flex:1;">清除背景</button>
+      </div>
+      <input type="file" id="bg-file" accept="image/*" style="display:none;">
+      <div class="bg-thumb" id="bg-thumb"></div>
+
+      <div class="modal-actions">
+        <button class="ghost" id="appearance-close">关闭</button>
       </div>
     </div>
   </div>
@@ -1385,6 +1642,224 @@
       syncDirsearchRec();
     }
 
+    // ================= 外观：主题 + 自定义背景 =================
+    const TKEY_THEME = 'intrusion_theme';
+
+    // 从图片中提取主色调（采样像素，跳过过亮/过暗/低饱和的点）
+    function extractDominantColor(imgEl) {
+      try {
+        const cv = document.createElement('canvas');
+        const SZ = 64;
+        cv.width = SZ; cv.height = SZ;
+        const ctx = cv.getContext('2d');
+        ctx.drawImage(imgEl, 0, 0, SZ, SZ);
+        const data = ctx.getImageData(0, 0, SZ, SZ).data;
+        let buckets = {};
+        for (let i = 0; i < data.length; i += 4) {
+          const r = data[i], g = data[i+1], b = data[i+2], a = data[i+3];
+          if (a < 128) continue;
+          const mx = Math.max(r,g,b), mn = Math.min(r,g,b);
+          const lum = (0.299*r + 0.587*g + 0.114*b);
+          if (lum < 30 || lum > 230) continue;      // 太暗或太亮
+          if (mx - mn < 25) continue;                // 太灰
+          const key = [Math.round(r/32), Math.round(g/32), Math.round(b/32)].join(',');
+          if (!buckets[key]) buckets[key] = { n: 0, r: 0, g: 0, b: 0 };
+          buckets[key].n++;
+          buckets[key].r += r; buckets[key].g += g; buckets[key].b += b;
+        }
+        let best = null;
+        for (const k in buckets) {
+          if (!best || buckets[k].n > best.n) best = buckets[k];
+        }
+        if (!best || best.n < 5) return null;
+        return 'rgb(' + Math.round(best.r/best.n) + ',' + Math.round(best.g/best.n) + ',' + Math.round(best.b/best.n) + ')';
+      } catch (e) { return null; }
+    }
+
+    // 应用主题
+    function applyTheme(theme) {
+      document.body.classList.toggle('theme-light', theme === 'light');
+      localStorage.setItem(TKEY_THEME, theme);
+      document.querySelectorAll('.theme-card').forEach(el => {
+        el.classList.toggle('selected', el.dataset.theme === theme);
+      });
+      // 主色变量跟随主题刷新
+      applyAccent();
+    }
+
+    // 应用背景图 + 主色调
+    let currentBg = '';
+    function applyBackground(dataUrl) {
+      currentBg = dataUrl || '';
+      const layer = $('bg-layer');
+      const veil = $('bg-veil');
+      const thumb = $('bg-thumb');
+      if (currentBg) {
+        layer.style.backgroundImage = 'url(' + currentBg + ')';
+        layer.classList.add('on');
+        veil.classList.add('on');
+        thumb.style.backgroundImage = 'url(' + currentBg + ')';
+        thumb.classList.add('on');
+        // 有壁纸：去掉毛玻璃，直接显示原图
+        document.body.classList.add('has-wallpaper');
+      } else {
+        layer.classList.remove('on');
+        veil.classList.remove('on');
+        thumb.classList.remove('on');
+        document.body.classList.remove('has-wallpaper');
+      }
+    }
+
+    // 根据当前背景图设置强调色（主色调取自图片）
+    function applyAccent() {
+      const isLight = document.body.classList.contains('theme-light');
+      if (!currentBg) {
+        document.documentElement.style.removeProperty('--accent');
+        document.documentElement.style.removeProperty('--accent-glow');
+        return;
+      }
+      const img = new Image();
+      img.onload = () => {
+        const col = extractDominantColor(img);
+        if (col) {
+          document.documentElement.style.setProperty('--accent', col);
+          document.documentElement.style.setProperty('--accent-glow', col);
+        }
+      };
+      img.src = currentBg;
+    }
+
+    // 打开外观弹窗
+    async function openAppearanceModal() {
+      // 先回显
+      const theme = localStorage.getItem(TKEY_THEME) || 'light';
+      applyTheme(theme);
+      $('appearance-modal').classList.add('show');
+    }
+
+    // 选择图片
+    $('bg-pick').addEventListener('click', () => $('bg-file').click());
+    $('bg-file').addEventListener('change', (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+      if (file.size > 6 * 1024 * 1024) {
+        alert('图片太大，请选择 6MB 以内的图片。');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onload = async () => {
+        const dataUrl = reader.result;
+        applyBackground(dataUrl);
+        applyAccent();
+        try {
+          await fetch('/api/appearance', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ theme: localStorage.getItem(TKEY_THEME) || 'light', background: dataUrl })
+          });
+        } catch (err) {}
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
+    });
+
+    // 清除背景
+    $('bg-clear').addEventListener('click', async () => {
+      applyBackground('');
+      applyAccent();
+      try { await fetch('/api/appearance/background', { method: 'DELETE' }); } catch (e) {}
+    });
+
+    // 主题卡片点击
+    document.querySelectorAll('.theme-card').forEach(el => {
+      el.addEventListener('click', () => applyTheme(el.dataset.theme));
+    });
+
+    // 关闭
+    $('appearance-close').addEventListener('click', () => $('appearance-modal').classList.remove('show'));
+    $('appearance-modal').addEventListener('click', (e) => {
+      if (e.target === $('appearance-modal')) $('appearance-modal').classList.remove('show');
+    });
+    // ================= CVE 检测 =================
+    function cveSeverityClass(sev) {
+      const s = (sev || '').toUpperCase();
+      if (s === 'CRITICAL') return 'critical';
+      if (s === 'HIGH') return 'high';
+      if (s === 'MEDIUM') return 'medium';
+      if (s === 'LOW') return 'low';
+      return 'unknown';
+    }
+
+    function renderCveList(items, note) {
+      const box = $('cve-list');
+      box.innerHTML = '';
+      if (!items || !items.length) {
+        const d = document.createElement('div');
+        d.className = 'cve-empty';
+        d.textContent = note || '暂无匹配的 CVE。可以先跑一次 Nmap 扫描，再点这里检测。';
+        box.appendChild(d);
+        return;
+      }
+      items.forEach(it => {
+        const card = document.createElement('div');
+        card.className = 'cve-card';
+        const sev = (it.severity || '').toUpperCase();
+        const scoreTxt = it.score != null ? ('CVSS ' + it.score) : '';
+        const desc = (it.desc || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        card.innerHTML = `
+          <div class="cve-card-top">
+            <span class="cve-id">${it.id}</span>
+            <span class="cve-sev ${cveSeverityClass(sev)}">${sev || '未知'}</span>
+            <span class="cve-score">${scoreTxt}</span>
+          </div>
+          <div class="cve-desc">${desc || '（无描述）'}</div>
+          <div class="cve-meta">匹配依据：<code>${(it.matched_on || '').replace(/</g,'&lt;')}</code></div>
+          <div class="cve-links">
+            <a class="cve-link primary" href="${it.url}" target="_blank" rel="noopener">NVD 详情</a>
+            <a class="cve-link" href="https://www.cve.org/CVERecord?id=${it.id}" target="_blank" rel="noopener">CVE.org</a>
+          </div>
+        `;
+        box.appendChild(card);
+      });
+    }
+
+    async function detectCve() {
+      const btn = $('cve-btn');
+      // 选一个已完成的扫描任务（优先最近一次有输出的）
+      const recs = Object.values(getStageRecords());
+      let taskId = currentRecordId;
+      if (!taskId) {
+        const box = $('cve-list');
+        box.innerHTML = '<div class="cve-empty">请先在控制台跑一次扫描，再回到这里检测 CVE。</div>';
+        return;
+      }
+      btn.disabled = true;
+      btn.textContent = '检测中…';
+      $('cve-list').innerHTML = '<div class="cve-empty">正在查询 NVD 数据库，请稍候（可能需要十几秒）…</div>';
+      try {
+        const res = await fetch('/api/cve/scan', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ task_id: taskId })
+        });
+        const data = await res.json();
+        if (data.error) {
+          $('cve-list').innerHTML = '<div class="cve-empty">' + data.error + '</div>';
+        } else {
+          renderCveList(data.matched, data.note);
+        }
+      } catch (e) {
+        $('cve-list').innerHTML = '<div class="cve-empty">查询失败：' + e + '</div>';
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '检测 CVE';
+      }
+    }
+
+    $('cve-btn').addEventListener('click', detectCve);
+
+    $('appearance-btn').addEventListener('click', openAppearanceModal);
+
     $('ai-settings-btn').addEventListener('click', openAiModal);
     $('vendor-tab-preset').addEventListener('click', () => switchVendorTab('preset'));
     $('vendor-tab-custom').addEventListener('click', () => switchVendorTab('custom'));
@@ -1397,6 +1872,18 @@
 
     // ===== 初始化 =====
     (async function init() {
+      // 先加载外观（主题 + 背景图），再加载其它
+      try {
+        const res = await fetch('/api/appearance');
+        const ap = await res.json();
+        applyTheme(ap.theme === 'dark' ? 'dark' : 'light');
+        if (ap.background) {
+          applyBackground(ap.background);
+          applyAccent();
+        }
+      } catch (e) {
+        applyTheme(localStorage.getItem(TKEY_THEME) || 'light');
+      }
       await loadSettings();
       await loadTools();
       renderParams();
