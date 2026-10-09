@@ -1,0 +1,29 @@
+# 第三方工具与便携运行时：体积大、各有许可，不纳入版本库
+tools/
+runtime/
+python/
+
+# 运行产物
+data/*
+!data/.gitkeep
+reports/*
+!reports/.gitkeep
+*.log
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+*.egg-info/
+
+# 本地配置（含本机路径/密钥，务必不要提交）
+config.local.json
+config.json
+.env
+
+# 编辑器与系统
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini

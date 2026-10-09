@@ -1,0 +1,1407 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Intrusion 渗透测试控制台</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --navy-deep: #0a1428;
+      --text-bright: #dce8ff;
+      --text-body: #9fb0d0;
+      --text-dim: #6d7f9f;
+      --line: rgba(150, 190, 255, 0.18);
+      --line-bright: #5da8ff;
+      --glass: rgba(21, 32, 58, 0.5);
+      --glass-strong: rgba(26, 38, 68, 0.6);
+      --green: #41d07c;
+      --red: #e5484d;
+      --blue: #5da8ff;
+      --amber: #e0b34a;
+      --purple: #c88ee0;
+      --mono: "Consolas", "Cascadia Mono", "SF Mono", "Courier New", monospace;
+    }
+
+    html, body { min-height: 100%; }
+
+    body {
+      font-family: -apple-system, "Segoe UI", "Microsoft YaHei", "PingFang SC", sans-serif;
+      color: var(--text-body);
+      background-color: var(--navy-deep);
+      background-image:
+        radial-gradient(60% 45% at 50% -8%,  rgba(64, 128, 255, 0.30), transparent 62%),
+        radial-gradient(38% 32% at -6% 8%,   rgba(84, 148, 255, 0.26), transparent 60%),
+        radial-gradient(38% 32% at 106% 8%,  rgba(84, 148, 255, 0.26), transparent 60%),
+        radial-gradient(55% 42% at 50% 108%, rgba(60, 122, 255, 0.24), transparent 62%);
+      background-attachment: fixed;
+      min-height: 100vh;
+      padding: 1.2rem 1.5rem 1.5rem;
+    }
+
+    .wrap { max-width: 1240px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.2rem; }
+
+    /* 毛玻璃面板 */
+    .glass {
+      background: var(--glass);
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+    }
+
+    /* ===== 区块小标题（工程软件标签风格） ===== */
+    .panel-title {
+      font-size: 0.78rem;
+      font-weight: 700;
+      color: var(--text-dim);
+      letter-spacing: 0.09em;
+      text-transform: uppercase;
+    }
+
+    /* ===== 顶栏 ===== */
+    .topbar { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
+    .brand { display: flex; align-items: center; gap: 0.7rem; }
+    .logo {
+      width: 34px; height: 34px; flex: 0 0 auto;
+      display: flex; align-items: center; justify-content: center;
+      filter: drop-shadow(0 2px 8px rgba(93, 168, 255, 0.35));
+    }
+    .logo svg { display: block; }
+    .brand-text { display: flex; flex-direction: column; }
+    .brand-text .name { font-size: 1.15rem; font-weight: 700; color: var(--text-bright); letter-spacing: 0.02em; }
+    .brand-text .sub { font-size: 0.75rem; color: var(--text-dim); }
+    .top-actions { display: flex; gap: 0.6rem; }
+    .icon-btn {
+      padding: 0.45rem 0.9rem; font-size: 0.85rem; color: var(--text-body);
+      background: transparent; border: 1px solid var(--line); border-radius: 999px; cursor: pointer;
+      transition: all .15s ease;
+    }
+    .icon-btn:hover { border-color: var(--line-bright); color: var(--text-bright); }
+
+    /* ===== 切换标签（顶栏下方居中） ===== */
+    .tabs { display: flex; gap: 0.4rem; justify-content: center; border-bottom: 1px solid var(--line); }
+    .tab {
+      padding: 0.55rem 1.6rem; font-size: 0.95rem; color: var(--text-dim);
+      background: transparent; border: none; border-bottom: 2px solid transparent; cursor: pointer;
+      transition: all .15s ease;
+    }
+    .tab:hover { color: var(--text-body); }
+    .tab.active { color: var(--text-bright); border-bottom-color: var(--line-bright); }
+
+    .page { display: none; }
+    .page.active { display: block; }
+
+    /* ===== 控制台：左右两栏 ===== */
+    .console-grid { display: grid; grid-template-columns: 40% 60%; gap: 1.2rem; align-items: start; }
+    .left-col, .right-col { display: flex; flex-direction: column; gap: 1.2rem; min-width: 0; }
+
+    /* 工具状态面板：三列横排小卡片 */
+    .status-panel { padding: 1.1rem 1.2rem; }
+    .status-panel .panel-title { margin-bottom: 0.9rem; }
+    .tool-status-list { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.6rem; }
+    .tool-status-item {
+      display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+      padding: 0.85rem 0.5rem; border-radius: 12px; text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.09); background: rgba(255, 255, 255, 0.04);
+      transition: border-color .18s ease, background .18s ease;
+    }
+    .tool-status-item.ready { background: rgba(65, 208, 124, 0.08); border-color: rgba(65, 208, 124, 0.25); }
+    .tool-status-item.missing { background: rgba(255, 255, 255, 0.04); border-color: rgba(255, 255, 255, 0.09); }
+    .tool-status-item:hover { border-color: rgba(150, 190, 255, 0.4); }
+    .tool-status-item .tname-row { display: flex; align-items: center; gap: 0.4rem; }
+    .tool-status-item .tdot { width: 7px; height: 7px; border-radius: 50%; flex: 0 0 auto; }
+    .tool-status-item.ready .tdot { background: var(--green); box-shadow: 0 0 6px rgba(65, 208, 124, 0.8); }
+    .tool-status-item.missing .tdot { background: var(--red); box-shadow: 0 0 6px rgba(229, 72, 77, 0.8); }
+    .tool-status-item .tname { font-size: 0.88rem; color: var(--text-bright); font-weight: 600; }
+    .tool-status-item .tdesc { font-size: 0.72rem; color: var(--text-dim); }
+    .tool-status-item.ready .tdesc { color: var(--green); opacity: 0.85; }
+
+    /* 扫描配置面板 */
+    .config-panel { padding: 1.1rem 1.2rem; }
+    .config-panel .panel-title { margin-bottom: 0.9rem; }
+
+    /* 三工具切换标签 */
+    .tool-tabs { display: flex; gap: 0.4rem; margin-bottom: 1rem; }
+    .tool-tab {
+      flex: 1; padding: 0.55rem 0; text-align: center; font-size: 0.85rem;
+      color: var(--text-dim); background: transparent; border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+      transition: all .15s ease;
+    }
+    .tool-tab:hover { color: var(--text-body); border-color: rgba(150, 190, 255, 0.4); }
+    .tool-tab.active { color: var(--text-bright); border-color: var(--line-bright); background: rgba(30, 50, 88, 0.55); }
+
+    /* 目标输入 */
+    .target-wrap { margin-bottom: 0.9rem; }
+    .target-wrap label { display: block; font-size: 0.78rem; color: var(--text-dim); margin-bottom: 0.4rem; letter-spacing: 0.05em; }
+    #target-input {
+      width: 100%; padding: 0.65rem 0.85rem; font-size: 0.9rem; font-family: var(--mono);
+      color: var(--text-bright); background: rgba(10, 18, 36, 0.55); border: 1px solid var(--line); border-radius: 10px;
+      transition: border-color .18s ease, box-shadow .18s ease;
+    }
+    #target-input::placeholder { color: #5c6d8f; }
+    #target-input:focus { outline: none; border-color: var(--line-bright); box-shadow: 0 0 0 3px rgba(93, 168, 255, 0.16), 0 0 18px rgba(64, 140, 255, 0.25); }
+
+    /* ===== 参数面板通用 ===== */
+    .params { display: flex; flex-direction: column; gap: 0.9rem; margin-bottom: 1rem; }
+    .prow { display: grid; grid-template-columns: 1fr 1fr; gap: 0.7rem; }
+    .prow.three { grid-template-columns: 1fr 1fr 1fr; }
+    .pitem { display: flex; flex-direction: column; gap: 0.35rem; }
+    .pitem.full { grid-column: 1 / -1; }
+    .pitem label { font-size: 0.74rem; color: var(--text-dim); letter-spacing: 0.03em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .pitem input, .pitem select {
+      width: 100%; box-sizing: border-box; min-width: 0;
+      padding: 0.5rem 0.7rem; font-size: 0.85rem; font-family: var(--mono);
+      color: var(--text-bright); background: rgba(10, 18, 36, 0.55);
+      border: 1px solid var(--line); border-radius: 9px;
+      transition: border-color .15s ease, box-shadow .15s ease;
+    }
+    .pitem input:focus, .pitem select:focus {
+      outline: none; border-color: var(--line-bright);
+      box-shadow: 0 0 0 3px rgba(93, 168, 255, 0.16), 0 0 16px rgba(64, 140, 255, 0.25);
+    }
+    .pitem input::placeholder { color: #52648a; }
+    .checks { display: flex; flex-wrap: wrap; gap: 0.35rem 0.9rem; }
+    .checks label {
+      display: flex; align-items: center; gap: 0.4rem; font-size: 0.82rem;
+      color: var(--text-body); cursor: pointer;
+    }
+    .checks input { accent-color: var(--line-bright); width: 14px; height: 14px; }
+
+    /* ===== 深色自定义下拉 ===== */
+    select {
+      appearance: none;
+      -webkit-appearance: none;
+      -moz-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' stroke='%238ba3c7' stroke-width='1.5' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 0.65rem center;
+      padding-right: 1.8rem !important;
+      cursor: pointer;
+    }
+    select option {
+      background: #101b31;
+      color: #dce8ff;
+    }
+
+    /* ===== 开始扫描按钮 ===== */
+    #run-btn {
+      width: 100%; padding: 0.72rem 0; font-size: 1rem; font-weight: 700; color: #0a2a5e;
+      background: linear-gradient(180deg, #ffffff, #e6eefc); border: none; border-radius: 999px; cursor: pointer;
+      transition: transform .14s ease, box-shadow .14s ease;
+    }
+    #run-btn:hover { background: #fff; transform: translateY(-2px); box-shadow: 0 8px 24px rgba(120, 170, 255, 0.35); }
+    #run-btn:disabled { background: rgba(70, 86, 120, 0.6); color: #8fa3c8; cursor: not-allowed; box-shadow: none; transform: none; }
+
+    /* ===== 输出终端（右上，最显眼） ===== */
+    .terminal-panel { padding: 1.1rem 1.2rem; display: flex; flex-direction: column; }
+    .terminal-panel .panel-title { margin-bottom: 0.8rem; }
+    .term-topbar {
+      display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.7rem;
+    }
+    .term-dots { display: flex; gap: 0.45rem; }
+    .term-dot { width: 12px; height: 12px; border-radius: 50%; }
+    .term-dot.red { background: #ff5f57; }
+    .term-dot.yellow { background: #febc2e; }
+    .term-dot.green { background: #28c840; }
+    .term-tools { display: flex; gap: 0.5rem; align-items: center; }
+    .mini-btn {
+      padding: 0.25rem 0.7rem; font-size: 0.75rem; color: var(--text-body);
+      background: transparent; border: 1px solid var(--line); border-radius: 8px; cursor: pointer;
+      transition: all .15s ease;
+    }
+    .mini-btn:hover { border-color: var(--line-bright); color: var(--text-bright); }
+    .badge { font-size: 0.78rem; color: var(--text-dim); }
+    .badge.done { color: var(--green); }
+    .badge.err { color: var(--red); }
+    #output {
+      min-height: 320px; max-height: 48vh; overflow-y: auto;
+      background: rgba(7, 13, 26, 0.72); border: 1px solid var(--line); border-radius: 12px; padding: 1rem 1.1rem;
+      font-family: var(--mono); font-size: 0.85rem; line-height: 1.65; color: #a9bad9;
+      white-space: pre-wrap; word-break: break-all;
+    }
+    #output .sys { color: var(--text-dim); }
+    #output .err { color: var(--red); }
+
+    /* ===== AI 解读面板（终端下面） ===== */
+    .ai-panel { padding: 1.1rem 1.2rem; }
+    .ai-panel .ai-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.7rem; }
+    .ai-panel .panel-title { margin-bottom: 0; }
+    #interpret-btn { padding: 0.45rem 1.1rem; font-size: 0.82rem; font-weight: 600; color: #04101d; background: var(--green); border: none; border-radius: 999px; cursor: pointer; }
+    #interpret-btn:hover { opacity: 0.9; }
+    #interpret-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    #interpret-result {
+      padding: 0.9rem 1rem; font-size: 0.88rem; line-height: 1.7; min-height: 60px;
+      color: var(--text-body); background: rgba(20, 30, 54, 0.5); border: 1px solid var(--line); border-radius: 12px;
+      white-space: pre-wrap;
+    }
+    .interpret-area { display: none; }
+    .interpret-area.show { display: block; }
+
+    /* ===== 历史面板 ===== */
+    .history-panel { padding: 1rem 1.2rem; }
+    .history-panel .panel-title { margin-bottom: 0.7rem; }
+    #history { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+    .history-item {
+      display: flex; align-items: center; gap: 0.5rem; padding: 0.35rem 0.75rem; font-size: 0.8rem;
+      border: 1px solid var(--line); border-radius: 999px; background: rgba(13, 20, 36, 0.4); cursor: pointer;
+      transition: border-color .15s ease, background .15s ease;
+    }
+    .history-item:hover { border-color: rgba(150, 190, 255, 0.4); background: rgba(21, 32, 58, 0.6); }
+    .history-item .t { color: var(--text-bright); font-weight: 600; }
+    .history-item .tg { color: var(--text-dim); max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .history-item .st { font-size: 0.72rem; }
+    .history-item .st.done { color: var(--green); }
+    .history-item .st.err { color: var(--red); }
+    .history-item .st.run { color: var(--amber); }
+    .history-empty { font-size: 0.8rem; color: var(--text-dim); padding: 0.3rem 0; }
+
+    /* ===== 轨迹页（居中窄版） ===== */
+    .trajectory-wrap { max-width: 900px; margin: 0 auto; display: flex; flex-direction: column; gap: 1.2rem; }
+    .guide-panel { padding: 1rem 1.2rem; }
+    .guide-panel .panel-title { margin-bottom: 0.5rem; }
+    .guide-text { font-size: 0.95rem; line-height: 1.7; color: var(--text-body); }
+    .guide-text .chip {
+      display: inline-block; margin: 0.2rem 0.3rem 0 0; padding: 0.15rem 0.6rem;
+      font-size: 0.78rem; font-family: var(--mono); color: var(--line-bright); cursor: pointer;
+      border: 1px dashed rgba(93, 168, 255, 0.5); border-radius: 8px;
+    }
+    .guide-text .chip:hover { background: rgba(93, 168, 255, 0.12); }
+    /* ===== 渗透链路图：圆形节点 + 连线 ===== */
+    .chain { display: flex; align-items: flex-start; overflow-x: auto; padding: 1.2rem 0.8rem 0.6rem; }
+    .chain-node {
+      display: flex; flex-direction: column; align-items: center; gap: 8px;
+      width: 118px; flex-shrink: 0; text-align: center;
+    }
+    .chain-circle {
+      width: 58px; height: 58px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 22px; position: relative; transition: all .3s ease;
+      background: rgba(160, 195, 240, 0.05); border: 1.5px dashed rgba(160, 195, 240, 0.25); color: #556b8a;
+    }
+    .chain-node.done .chain-circle {
+      background: rgba(65, 208, 124, 0.12); border: 1.5px solid rgba(65, 208, 124, 0.6); color: var(--green);
+    }
+    .chain-node.current .chain-circle {
+      background: rgba(93, 168, 255, 0.2); border: 1.5px solid rgba(140, 195, 245, 0.95); color: #dceafc;
+      box-shadow: 0 0 0 4px rgba(93, 168, 255, 0.15), 0 0 24px rgba(93, 168, 255, 0.35);
+      animation: nodeGlow 2s infinite;
+    }
+    @keyframes nodeGlow {
+      0%, 100% { box-shadow: 0 0 0 4px rgba(93, 168, 255, 0.15), 0 0 24px rgba(93, 168, 255, 0.35); }
+      50% { box-shadow: 0 0 0 8px rgba(93, 168, 255, 0.06), 0 0 34px rgba(93, 168, 255, 0.5); }
+    }
+    .chain-badge {
+      position: absolute; bottom: -3px; right: -3px; width: 20px; height: 20px; border-radius: 50%;
+      display: flex; align-items: center; justify-content: center; font-size: 11px;
+      background: #12301f; border: 1px solid rgba(65, 208, 124, 0.6); color: var(--green);
+    }
+    .chain-name { font-size: 12.5px; font-weight: 600; color: #d8e4f5; }
+    .chain-desc { font-size: 10.5px; color: #68809f; }
+    .chain-node.locked .chain-name { color: #556b8a; }
+    .chain-line {
+      flex: 1; height: 2px; margin: 0 6px 34px; border-radius: 1px; min-width: 30px;
+    }
+    .chain-line.done { background: linear-gradient(90deg, rgba(65, 208, 124, 0.7), rgba(65, 208, 124, 0.35)); }
+    .chain-line.todo { background: repeating-linear-gradient(90deg, rgba(160, 195, 240, 0.28) 0 6px, transparent 6px 12px); }
+
+
+    /* 阶段卡片：宽屏两列网格，减少纵向堆叠 */
+    .stage-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; align-items: start; }
+    .stage-card { padding: 1rem 1.1rem; }
+    .stage-card .sc-head { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.5rem; }
+    .stage-card .sc-name { font-weight: 600; font-size: 1rem; color: var(--text-bright); }
+    .sc-badge { font-size: 0.72rem; padding: 0.15rem 0.6rem; border-radius: 999px; }
+    .sc-badge.done { background: rgba(65, 208, 124, 0.12); color: var(--green); border: 1px solid rgba(65, 208, 124, 0.35); }
+    .sc-badge.current { background: rgba(93, 168, 255, 0.15); color: var(--blue); border: 1px solid rgba(93, 168, 255, 0.45); }
+    .sc-badge.locked { background: rgba(160, 195, 240, 0.05); color: #556b8a; border: 1px solid rgba(160, 195, 240, 0.12); }
+    .sc-actions { display: flex; gap: 0.5rem; }
+    .stage-btn {
+      padding: 0.4rem 0.9rem; font-size: 0.78rem; border: 1px solid var(--line); border-radius: 8px;
+      background: transparent; color: var(--text-body); cursor: pointer; transition: all .15s ease;
+    }
+    .stage-btn:hover { border-color: var(--line-bright); color: var(--text-bright); }
+    .stage-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+    .stage-btn.primary { background: rgba(93, 168, 255, 0.15); border-color: rgba(93, 168, 255, 0.4); color: var(--line-bright); }
+
+    .ai-note {
+      margin-top: 0.7rem; padding: 0.8rem 0.9rem; font-size: 0.85rem; line-height: 1.6;
+      color: var(--text-body); background: rgba(20, 30, 54, 0.5); border: 1px solid var(--line); border-radius: 10px;
+    }
+    .ai-note .note-head { font-size: 0.72rem; color: #7fa8d4; margin-bottom: 0.3rem; }
+    .finding-chip {
+      display: inline-block; margin: 0.2rem 0.3rem 0 0; padding: 0.15rem 0.55rem;
+      font-size: 0.75rem; color: var(--amber); border: 1px solid rgba(224, 179, 74, 0.35); border-radius: 999px;
+      background: rgba(224, 179, 74, 0.08);
+    }
+    .target-chip {
+      display: inline-block; margin: 0.2rem 0.3rem 0 0; padding: 0.15rem 0.6rem;
+      font-size: 0.75rem; font-family: var(--mono); color: var(--line-bright); cursor: pointer;
+      border: 1px dashed rgba(93, 168, 255, 0.5); border-radius: 8px;
+    }
+    .target-chip:hover { background: rgba(93, 168, 255, 0.12); }
+    .guidance-line { margin-top: 0.6rem; padding-top: 0.6rem; border-top: 1px dashed rgba(90, 159, 224, 0.25); }
+    .guidance-line .g-label { color: #9ec7f2; font-weight: 600; }
+
+    .timeline-panel { padding: 1rem 1.2rem; }
+    .timeline-panel .panel-title { margin-bottom: 0.6rem; }
+    .timeline { display: flex; flex-direction: column; gap: 0.5rem; max-height: 240px; overflow-y: auto; }
+    .tl-item { display: flex; gap: 0.8rem; align-items: baseline; font-size: 0.85rem; }
+    .tl-time { color: var(--text-dim); font-family: var(--mono); flex: 0 0 auto; }
+    .tl-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--line-bright); flex: 0 0 auto; align-self: center; }
+    .tl-text { color: var(--text-body); }
+    .tl-text .done { color: var(--green); }
+    .tl-text .err { color: var(--red); }
+
+    /* ===== 弹窗 ===== */
+    .modal-mask {
+      position: fixed; inset: 0; background: rgba(4, 8, 18, 0.7);
+      display: none; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(4px);
+    }
+    .modal-mask.show { display: flex; }
+    .modal {
+      width: 520px; max-width: 92vw; max-height: 86vh; overflow-y: auto;
+      background: #101b31; border: 1px solid var(--line); border-radius: 16px; padding: 1.4rem 1.5rem;
+    }
+    .modal h2 { font-size: 1.1rem; color: var(--text-bright); margin-bottom: 1rem; }
+    .modal label { display: block; font-size: 0.78rem; color: var(--text-dim); margin: 0.8rem 0 0.3rem; }
+    .modal input { width: 100%; padding: 0.55rem 0.7rem; font-size: 0.9rem; color: var(--text-bright); background: rgba(10, 18, 36, 0.6); border: 1px solid var(--line); border-radius: 8px; }
+    .modal input:focus { outline: none; border-color: var(--line-bright); }
+    .modal .hint { font-size: 0.72rem; color: var(--text-dim); margin-top: 0.3rem; }
+    /* ===== AI 供应商选择（CC Switch 式） ===== */
+    .vendor-tabs {
+      display: flex; gap: 0.4rem; padding: 0.3rem; margin: 0.8rem 0 1rem;
+      background: rgba(160, 195, 240, 0.06); border-radius: 999px;
+    }
+    .vendor-tab {
+      flex: 1; padding: 0.45rem 0; text-align: center; font-size: 0.83rem;
+      color: var(--text-dim); background: transparent; border: none; border-radius: 999px; cursor: pointer;
+      transition: all .15s ease;
+    }
+    .vendor-tab.active { background: rgba(160, 195, 240, 0.16); color: #fff; }
+    .vendor-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; }
+    .vendor-card {
+      position: relative; display: flex; flex-direction: column; align-items: center; gap: 0.4rem;
+      padding: 0.7rem 0.4rem; border-radius: 14px; cursor: pointer; text-align: center;
+      background: rgba(160, 195, 240, 0.045); border: 1px solid rgba(160, 195, 240, 0.14);
+      transition: all .18s ease;
+    }
+    .vendor-card:hover { border-color: rgba(110, 170, 240, 0.6); background: rgba(160, 195, 240, 0.09); }
+    .vendor-card.selected { border-color: rgba(110, 170, 240, 0.9); background: rgba(90, 150, 230, 0.18); box-shadow: 0 0 0 1px rgba(110, 170, 240, 0.55); }
+    .vendor-star {
+      position: absolute; top: 5px; right: 6px; font-size: 12px; color: #506685; cursor: pointer;
+    }
+    .vendor-star:hover { color: var(--amber); }
+    .vendor-star.faved { color: var(--amber); }
+    .vendor-icon {
+      width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center;
+      font-size: 15px; font-weight: 700;
+    }
+    .vendor-name { font-size: 0.72rem; color: #b9c8dc; }
+    .vendor-custom label { display: block; font-size: 0.78rem; color: var(--text-dim); margin: 0.8rem 0 0.3rem; }
+    .vendor-custom input { width: 100%; padding: 0.55rem 0.7rem; font-size: 0.9rem; color: var(--text-bright); background: rgba(10, 18, 36, 0.6); border: 1px solid var(--line); border-radius: 8px; }
+    .vendor-custom input:focus { outline: none; border-color: var(--line-bright); }
+
+    .providers { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.5rem; }
+    .provider-chip {
+      display: flex; align-items: center; gap: 0.3rem; padding: 0.35rem 0.7rem; font-size: 0.82rem;
+      border: 1px solid var(--line); border-radius: 999px; cursor: pointer; color: var(--text-body); background: rgba(13, 20, 36, 0.4);
+      transition: all .15s ease;
+    }
+    .provider-chip:hover { border-color: var(--line-bright); }
+    .provider-chip .star { color: var(--text-dim); }
+    .provider-chip.fav .star { color: var(--amber); }
+    .modal-actions { display: flex; justify-content: flex-end; gap: 0.6rem; margin-top: 1.2rem; }
+    .modal-actions button { padding: 0.55rem 1.3rem; font-size: 0.88rem; font-weight: 600; border-radius: 999px; cursor: pointer; border: none; }
+    .modal-actions .primary { background: var(--line-bright); color: #04101d; }
+    .modal-actions .ghost { background: transparent; color: var(--text-body); border: 1px solid var(--line); }
+
+    /* ===== 响应式：窄窗口适配 ===== */
+    /* 中窄屏：左右两栏改为上下堆叠，链路图缩小 */
+    @media (max-width: 1024px) {
+      body { padding: 1rem 1rem 1.2rem; }
+      .console-grid { grid-template-columns: 1fr; gap: 1rem; }
+      .chain-node { width: 96px; }
+      .chain-circle { width: 50px; height: 50px; font-size: 19px; }
+      .chain-desc { display: none; }
+      .trajectory-wrap { gap: 1rem; }
+      .stage-cards { gap: 0.8rem; }
+    }
+
+    /* 窄屏：参数双列改单列，供应商网格 2 列，留白收紧 */
+    @media (max-width: 768px) {
+      .wrap { gap: 1rem; }
+      .prow, .prow.three { grid-template-columns: 1fr; }
+      .tool-status-list { grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; }
+      .tool-status-item { padding: 0.7rem 0.4rem; }
+      .tool-status-item .tname { font-size: 0.82rem; }
+      .vendor-grid { grid-template-columns: repeat(3, 1fr); }
+      .modal { padding: 1.1rem 1.1rem; }
+      .term-dots { display: none; }
+      #output { min-height: 220px; max-height: 40vh; font-size: 0.8rem; }
+      .chain { padding: 0.8rem 0.4rem 0.4rem; }
+      .chain-node { width: 78px; }
+      .chain-name { font-size: 11px; }
+      .chain-line { margin-bottom: 28px; min-width: 16px; }
+      .stage-cards { grid-template-columns: 1fr; gap: 0.7rem; }
+      .stage-card { padding: 0.85rem 0.9rem; }
+      .stage-card .sc-name { font-size: 0.92rem; }
+      .timeline { max-height: 200px; }
+    }
+
+    /* 很窄屏：供应商 2 列，按钮堆叠 */
+    @media (max-width: 520px) {
+      body { padding: 0.8rem 0.7rem 1rem; }
+      .brand-text .name { font-size: 1rem; }
+      .brand-text .sub { display: none; }
+      .top-actions { gap: 0.4rem; }
+      .icon-btn { padding: 0.35rem 0.65rem; font-size: 0.78rem; }
+      .tab { padding: 0.5rem 1rem; font-size: 0.88rem; }
+      .tool-status-list { grid-template-columns: 1fr; }
+      .tool-tabs { flex-wrap: wrap; }
+      .vendor-grid { grid-template-columns: repeat(2, 1fr); }
+      .vendor-tabs { flex-direction: column; border-radius: 12px; }
+      .modal { padding: 1rem 0.9rem; }
+      .modal-actions { flex-direction: column-reverse; }
+      .modal-actions button { width: 100%; }
+      .chain-node { width: 64px; }
+      .chain-circle { width: 42px; height: 42px; font-size: 16px; }
+      .chain-badge { width: 16px; height: 16px; font-size: 9px; }
+      .trajectory-wrap { gap: 0.8rem; }
+      .guide-panel, .timeline-panel { padding: 0.85rem 0.9rem; }
+      .guide-text { font-size: 0.88rem; }
+      .stage-card { padding: 0.8rem 0.85rem; }
+      .stage-card .sc-head { flex-wrap: wrap; }
+      .sc-actions { flex-wrap: wrap; gap: 0.4rem; }
+      .stage-btn { padding: 0.35rem 0.7rem; font-size: 0.74rem; }
+      .timeline { max-height: 180px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <!-- 顶栏 -->
+    <div class="topbar">
+      <div class="brand">
+        <div class="logo">
+        <svg width="34" height="34" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="logoGrad" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+              <stop stop-color="#5da8ff"/>
+              <stop offset="1" stop-color="#3b6fd4"/>
+            </linearGradient>
+          </defs>
+          <rect width="48" height="48" rx="11" fill="url(#logoGrad)"/>
+          <circle cx="24" cy="24" r="13" stroke="white" stroke-width="2.5"/>
+          <circle cx="24" cy="24" r="5" fill="white"/>
+          <path d="M24 8 V14" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M24 34 V40" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M8 24 H14" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M34 24 H40" stroke="white" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+        <div class="brand-text">
+          <div class="name">Intrusion</div>
+          <div class="sub">渗透测试控制台 · 授权目标专用</div>
+        </div>
+      </div>
+      <div class="top-actions">
+        <button class="icon-btn" id="tools-settings-btn">工具路径</button>
+        <button class="icon-btn" id="ai-settings-btn">AI 设置</button>
+      </div>
+    </div>
+
+    <!-- 切换标签（居中） -->
+    <div class="tabs">
+      <button class="tab active" data-page="console">控制台</button>
+      <button class="tab" data-page="trajectory">轨迹</button>
+    </div>
+
+    <!-- ===== 控制台页 ===== -->
+    <div class="page active" id="page-console">
+      <div class="console-grid">
+        <!-- 左列（40%） -->
+        <div class="left-col">
+          <div class="status-panel glass">
+            <div class="panel-title">工具状态</div>
+            <div class="tool-status-list" id="tool-status-list"></div>
+          </div>
+
+          <div class="config-panel glass">
+            <div class="panel-title">扫描配置</div>
+            <div class="tool-tabs">
+              <button class="tool-tab active" data-tool="nmap">Nmap</button>
+              <button class="tool-tab" data-tool="sqlmap">SQLMap</button>
+              <button class="tool-tab" data-tool="dirsearch">DirSearch</button>
+            </div>
+            <div class="target-wrap">
+              <label>目标</label>
+              <input autocomplete="off" id="target-input" type="text" placeholder="">
+            </div>
+            <div class="params" id="params"></div>
+            <button id="run-btn">开始扫描</button>
+            <button id="stop-btn" style="width:100%;margin-top:0.6rem;padding:0.55rem;font-size:0.85rem;font-weight:500;color:var(--text-body);background:transparent;border:1px solid var(--line);border-radius:999px;cursor:pointer;display:none;" >停止扫描</button>
+          </div>
+        </div>
+
+        <!-- 右列（60%） -->
+        <div class="right-col">
+          <div class="terminal-panel glass">
+            <div class="panel-title">输出终端</div>
+            <div class="term-topbar">
+              <div class="term-dots">
+                <span class="term-dot red"></span>
+                <span class="term-dot yellow"></span>
+                <span class="term-dot green"></span>
+              </div>
+              <div class="term-tools">
+                <button class="mini-btn" id="copy-btn">复制</button>
+                <button class="mini-btn" id="clear-btn">清空</button>
+                <span class="badge" id="badge"></span>
+              </div>
+            </div>
+            <div id="output"></div>
+          </div>
+
+          <div class="ai-panel glass">
+            <div class="ai-head">
+              <span class="panel-title">AI 解读</span>
+              <button id="interpret-btn">生成解读</button>
+            </div>
+            <div class="interpret-area" id="interpret-area">
+              <div id="interpret-result"></div>
+            </div>
+          </div>
+
+          <div class="history-panel glass">
+            <div class="panel-title">任务历史</div>
+            <div id="history"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ===== 轨迹页（居中窄版） ===== -->
+    <div class="page" id="page-trajectory">
+      <div class="trajectory-wrap">
+        <div class="guide-panel glass">
+          <div class="panel-title">下一步指引</div>
+          <div class="guide-text" id="guide-text"></div>
+        </div>
+
+        <div class="glass" style="padding:1rem 1.2rem;">
+          <div class="chain" id="chain"></div>
+        </div>
+
+        <div class="stage-cards" id="stage-cards"></div>
+
+        <div class="timeline-panel glass">
+          <div class="panel-title">全部任务时间线</div>
+          <div class="timeline" id="timeline"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AI 设置弹窗（CC Switch 式：预设供应商 / 自定义配置） -->
+  <div class="modal-mask" id="ai-modal">
+    <div class="modal">
+      <h2>AI 设置</h2>
+      <div class="hint">支持 OpenAI 兼容接口。API Key 仅保存在本机，不上传。</div>
+
+      <div class="vendor-tabs">
+        <button class="vendor-tab active" id="vendor-tab-preset">预设供应商</button>
+        <button class="vendor-tab" id="vendor-tab-custom">自定义配置</button>
+      </div>
+
+      <!-- 预设供应商网格 -->
+      <div class="vendor-grid" id="vendor-grid"></div>
+
+      <!-- 自定义配置 -->
+      <div class="vendor-custom" id="vendor-custom" style="display:none;">
+        <label>服务地址（Base URL）</label>
+        <input autocomplete="off" id="ai-base" type="text" placeholder="https://api.xxx.com/v1">
+        <label>模型名</label>
+        <input autocomplete="off" id="ai-model" type="text" placeholder="model-name">
+        <label>密钥（API Key）</label>
+        <input autocomplete="off" id="ai-key" type="password" placeholder="sk-...">
+      </div>
+
+      <div class="modal-actions">
+        <button class="ghost" id="ai-cancel">取消</button>
+        <button class="primary" id="ai-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 工具路径弹窗 -->
+  <div class="modal-mask" id="tools-modal">
+    <div class="modal">
+      <h2>工具路径设置</h2>
+      <div class="hint">自动检测不到时，手动填完整路径（绝对路径）即可。</div>
+      <label>Nmap（nmap.exe）</label>
+      <input autocomplete="off" id="tp-nmap" type="text">
+      <label>SQLMap（sqlmap.py）</label>
+      <input autocomplete="off" id="tp-sqlmap" type="text">
+      <label>DirSearch（dirsearch.py）</label>
+      <input autocomplete="off" id="tp-dirsearch" type="text">
+      <label>DirSearch 用的 Python（.venv 里的 python.exe）</label>
+      <input autocomplete="off" id="tp-dirsearch-python" type="text">
+      <div class="modal-actions">
+        <button class="ghost" id="tools-cancel">取消</button>
+        <button class="primary" id="tools-save">保存</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ===== 状态 =====
+    let tools = {};
+    let settings = {};
+    let providers = [];
+    let aiFavorites = [];
+    let selectedTool = 'nmap';
+    let currentScanId = null;
+    let currentRecordId = null;
+    let eventSource = null;
+    let running = false;
+
+    const $ = (id) => document.getElementById(id);
+    const val = (id) => { const el = $(id); return el ? el.value.trim() : ''; };
+    const chk = (id) => { const el = $(id); return el ? el.checked : false; };
+
+    // 轨迹四关定义
+    const STAGES = [
+      { tool: 'nmap', name: 'Nmap 侦察', desc: '端口与服务发现' },
+      { tool: 'dirsearch', name: 'DirSearch 枚举', desc: 'Web 目录与资源' },
+      { tool: 'sqlmap', name: 'SQLMap 利用', desc: 'SQL 注入测试' },
+      { tool: 'ai', name: 'AI 分析', desc: '结果解读与报告' },
+    ];
+    const SKEY = 'intrusion_stage_records';
+    const TKEY = 'intrusion_session_token';
+    function getStageRecords() { try { return JSON.parse(localStorage.getItem(SKEY) || '{}'); } catch { return {}; } }
+    function saveStageRecords(r) { localStorage.setItem(SKEY, JSON.stringify(r)); }
+    // 若服务端会话变了（重启过），清掉浏览器里残留的轨迹记录，保证每次打开都是全新的
+    function syncSession(token) {
+      if (!token) return;
+      const last = localStorage.getItem(TKEY);
+      if (last !== token) {
+        localStorage.removeItem(SKEY);
+        localStorage.setItem(TKEY, token);
+      }
+    }
+    let recordingStage = null;
+
+    // ===== 参数面板定义 =====
+    const paramDefs = {
+      nmap: {
+        preset: [
+          ['basic','基础扫描 (-sV -sC)'],['quick','快速扫描 (-F)'],['full','全端口 (-p-)'],
+          ['service','服务识别'],['os','系统探测 (-O)'],['vuln','漏洞脚本 (vuln)'],
+          ['stealth','隐蔽扫描 (-sS -f)'],['udp','UDP 扫描 (-sU)'],['custom','自定义'],
+        ],
+        scanTech: [['','默认'],['-sS','-sS SYN'],['-sT','-sT TCP'],['-sU','-sU UDP'],['-sA','-sA ACK'],['-sW','-sW 窗口']],
+        timing: [['','默认'],['-T0','T0 偏执'],['-T1','T1 鬼祟'],['-T2','T2 礼貌'],['-T3','T3 正常'],['-T4','T4 激进'],['-T5','T5 疯狂']],
+      },
+      sqlmap: {
+        mode: [['url','URL (-u)'],['request','请求文件 (-r)'],['batch_url','批量 URL (-m)'],['post','POST 数据 (--data)'],['crawl','爬取注入 (--crawl)']],
+        dbms: [['','自动'],['mysql','MySQL'],['mssql','MSSQL'],['oracle','Oracle'],['postgresql','PostgreSQL'],['sqlite','SQLite']],
+      },
+      dirsearch: {
+        method: [['','GET'],['POST','POST'],['HEAD','HEAD']],
+      },
+    };
+
+    function renderParams() {
+      const box = $('params');
+      if (selectedTool === 'nmap') box.innerHTML = renderNmapParams();
+      else if (selectedTool === 'sqlmap') box.innerHTML = renderSqlmapParams();
+      else box.innerHTML = renderDirsearchParams();
+      // 绑定 sqlmap 注入方式切换的动态显示
+      bindSqlmapMode();
+      // 绑定 dirsearch 递归联动（仅当 dirsearch 面板渲染后）
+      bindDirsearchRec();
+    }
+
+    function renderNmapParams() {
+      const preset = paramDefs.nmap.preset.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+      const tech = paramDefs.nmap.scanTech.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+      const timing = paramDefs.nmap.timing.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+      return `
+        <div class="prow">
+          <div class="pitem"><label>预设模板</label><select id="nmapType">${preset}</select></div>
+          <div class="pitem"><label>端口范围</label><input autocomplete="off" id="nmapPorts" type="text" placeholder="1-1000 / 80,443"></div>
+        </div>
+        <div class="prow three">
+          <div class="pitem"><label>扫描技术</label><select id="nmapTech">${tech}</select></div>
+          <div class="pitem"><label>时序模板</label><select id="nmapTiming">${timing}</select></div>
+          <div class="pitem"><label>NSE 脚本</label><input autocomplete="off" id="nmapScripts" type="text" placeholder="default,vuln"></div>
+        </div>
+        <div class="pitem full"><label>脚本参数</label><input autocomplete="off" id="nmapScriptArgs" type="text" placeholder="如 http.useragent=xxx"></div>
+        <div class="checks">
+          <label><input autocomplete="off" id="nmapSv" type="checkbox"> 服务识别 -sV</label>
+          <label><input autocomplete="off" id="nmapSc" type="checkbox"> 默认脚本 -sC</label>
+          <label><input autocomplete="off" id="nmapOs" type="checkbox"> 系统探测 -O</label>
+          <label><input autocomplete="off" id="nmapPn" type="checkbox"> 禁 ping -Pn</label>
+          <label><input autocomplete="off" id="nmapSkipDns" type="checkbox"> 禁 DNS -n</label>
+          <label><input autocomplete="off" id="nmapVerbose" type="checkbox"> 详细 -v</label>
+          <label><input autocomplete="off" id="nmapAggressive" type="checkbox"> 激进 -A</label>
+          <label><input autocomplete="off" id="nmapFragment" type="checkbox"> 分片 -f</label>
+        </div>
+        <div class="pitem full"><label>排除主机</label><input autocomplete="off" id="nmapExclude" type="text" placeholder="如 192.168.1.1,10.0.0.0/24"></div>
+        <div class="checks">
+          <label><input autocomplete="off" id="nmapOutNormal" type="checkbox"> 输出 txt</label>
+          <label><input autocomplete="off" id="nmapOutXml" type="checkbox"> 输出 xml</label>
+        </div>
+        <div class="pitem full"><label>附加参数</label><input autocomplete="off" id="nmapExtra" type="text" placeholder="如 --min-rate 1000"></div>
+      `;
+    }
+
+    function renderSqlmapParams() {
+      const mode = paramDefs.sqlmap.mode.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+      const dbms = paramDefs.sqlmap.dbms.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+      return `
+        <div class="prow">
+          <div class="pitem"><label>注入方式</label><select id="sqlmapMode">${mode}</select></div>
+          <div class="pitem"><label>数据库类型 DBMS</label><select id="sqlmapDbms">${dbms}</select></div>
+        </div>
+        <div class="pitem full" id="sqlmapReqWrap" style="display:none;"><label>请求文件路径（Burp 导出）</label><input autocomplete="off" id="sqlmapReq" type="text" placeholder="D:/request.txt"></div>
+        <div class="pitem full" id="sqlmapDataWrap" style="display:none;"><label>POST 数据</label><input autocomplete="off" id="sqlmapData" type="text" placeholder="id=1&name=test"></div>
+        <div class="pitem full" id="sqlmapCrawlWrap" style="display:none;"><label>爬取深度</label><input autocomplete="off" id="sqlmapCrawlDepth" type="number" value="2"></div>
+        <div class="prow three">
+          <div class="pitem"><label>测试强度 level</label><select id="sqlmapLevel">${[1,2,3,4,5].map(n=>`<option value="${n}">${n}</option>`).join('')}</select></div>
+          <div class="pitem"><label>风险 risk</label><select id="sqlmapRisk">${[1,2,3].map(n=>`<option value="${n}">${n}</option>`).join('')}</select></div>
+          <div class="pitem"><label>线程数</label><input autocomplete="off" id="sqlmapThreads" type="number" value="1" min="1" max="10"></div>
+        </div>
+        <div class="prow">
+          <div class="pitem"><label>注入技术 (BEUSTQ)</label><input autocomplete="off" id="sqlmapTechnique" type="text" placeholder="如 BE 或 T"></div>
+          <div class="pitem"><label>tamper 脚本</label><input autocomplete="off" id="sqlmapTamper" type="text" placeholder="space2comment,between"></div>
+        </div>
+        <div class="prow">
+          <div class="pitem"><label>Cookie</label><input autocomplete="off" id="sqlmapCookie" type="text" placeholder="PHPSESSID=xxx"></div>
+          <div class="pitem"><label>User-Agent</label><input autocomplete="off" id="sqlmapUA" type="text" placeholder="自定义 UA"></div>
+        </div>
+        <div class="pitem full"><label>代理</label><input autocomplete="off" id="sqlmapProxy" type="text" placeholder="http://127.0.0.1:8080"></div>
+        <div class="checks">
+          <label><input autocomplete="off" id="sqlmapBatch" type="checkbox" checked> --batch</label>
+          <label><input autocomplete="off" id="sqlmapDbs" type="checkbox"> 所有库 --dbs</label>
+          <label><input autocomplete="off" id="sqlmapCurDb" type="checkbox"> 当前库</label>
+          <label><input autocomplete="off" id="sqlmapCurUser" type="checkbox"> 当前用户</label>
+          <label><input autocomplete="off" id="sqlmapUsers" type="checkbox"> 所有用户</label>
+          <label><input autocomplete="off" id="sqlmapPasswords" type="checkbox"> 所有密码</label>
+          <label><input autocomplete="off" id="sqlmapTables" type="checkbox"> 所有表</label>
+          <label><input autocomplete="off" id="sqlmapColumns" type="checkbox"> 所有列</label>
+          <label><input autocomplete="off" id="sqlmapDump" type="checkbox"> 导出数据 --dump</label>
+          <label><input autocomplete="off" id="sqlmapRandomAgent" type="checkbox"> 随机 UA</label>
+        </div>
+        <div class="prow">
+          <div class="pitem"><label>指定库名 (-D)</label><input autocomplete="off" id="sqlmapDb" type="text" placeholder="dbname"></div>
+          <div class="pitem"><label>指定表名 (-T)</label><input autocomplete="off" id="sqlmapTable" type="text" placeholder="tablename"></div>
+        </div>
+        <div class="pitem full"><label>附加参数</label><input autocomplete="off" id="sqlmapExtra" type="text" placeholder="如 --fresh-queries --hex"></div>
+      `;
+    }
+
+    function renderDirsearchParams() {
+      const method = paramDefs.dirsearch.method.map(([v,l]) => `<option value="${v}">${l}</option>`).join('');
+      return `
+        <div class="prow">
+          <div class="pitem"><label>扩展名 (-e)</label><input autocomplete="off" id="dirsearchExt" type="text" value="php" placeholder="php"></div>
+          <div class="pitem"><label>请求方法 (-m)</label><select id="dirsearchMethod">${method}</select></div>
+        </div>
+        <div class="pitem full"><label>字典 (-w)</label><input autocomplete="off" id="dirsearchWordlist" type="text" placeholder="留空用默认字典，或填 D:/wordlist.txt"></div>
+        <div class="prow">
+          <div class="pitem"><label>线程数 (-t)</label><input autocomplete="off" id="dirsearchThreads" type="number" value="10"></div>
+          <div class="pitem"><label>延迟秒 (--delay)</label><input autocomplete="off" id="dirsearchDelay" type="number" placeholder="0.5"></div>
+        </div>
+        <div class="prow">
+          <div class="pitem"><label>Cookie</label><input autocomplete="off" id="dirsearchCookie" type="text" placeholder="PHPSESSID=xxx"></div>
+          <div class="pitem"><label>User-Agent</label><input autocomplete="off" id="dirsearchUA" type="text" placeholder="自定义 UA"></div>
+        </div>
+        <div class="prow">
+          <div class="pitem"><label>代理</label><input autocomplete="off" id="dirsearchProxy" type="text" placeholder="http://127.0.0.1:8080"></div>
+          <div class="pitem"><label>自定义请求头 (-H)</label><input autocomplete="off" id="dirsearchHeader" type="text" placeholder="X-Token: xxx"></div>
+        </div>
+        <div class="prow">
+          <div class="pitem"><label>包含状态码 (-i)</label><input autocomplete="off" id="dirsearchStatus" type="text" value="200,301,302"></div>
+          <div class="pitem"><label>排除状态码 (-x)</label><input autocomplete="off" id="dirsearchExStatus" type="text" placeholder="404,500"></div>
+        </div>
+        <div class="pitem full"><label>排除大小 (--exclude-sizes)</label><input autocomplete="off" id="dirsearchExSize" type="text" placeholder="如 0B,123B"></div>
+        <div class="prow">
+          <div class="pitem">
+            <label><input autocomplete="off" id="dirsearchRecursive" type="checkbox" style="width:auto;margin:0;"> 启用递归</label>
+            <input autocomplete="off" id="dirsearchDepth" type="number" value="0" min="0" placeholder="递归深度 0=无限">
+          </div>
+        </div>
+        <div class="checks">
+          <label><input autocomplete="off" id="dirsearchForceExt" type="checkbox"> 强制扩展名 -f</label>
+          <label><input autocomplete="off" id="dirsearchFollow" type="checkbox"> 跟随重定向 -F</label>
+          <label><input autocomplete="off" id="dirsearchRandomAgent" type="checkbox"> 随机 UA</label>
+          <label><input autocomplete="off" id="dirsearchOutFile" type="checkbox"> 输出到文件</label>
+        </div>
+        <div class="pitem full"><label>附加参数</label><input autocomplete="off" id="dirsearchExtra" type="text" placeholder="如 --full-url"></div>
+      `;
+    }
+
+    function bindSqlmapMode() {
+      const sel = $('sqlmapMode');
+      if (!sel) return;
+      const update = () => {
+        const m = sel.value;
+        $('sqlmapReqWrap').style.display = m === 'request' ? '' : 'none';
+        $('sqlmapDataWrap').style.display = m === 'post' ? '' : 'none';
+        $('sqlmapCrawlWrap').style.display = m === 'crawl' ? '' : 'none';
+      };
+      sel.addEventListener('change', update);
+      update();
+    }
+
+    function collectParams() {
+      if (selectedTool === 'nmap') {
+        return {
+          target: val('target-input'), scan_type: val('nmapType'), ports: val('nmapPorts'),
+          scan_tech: val('nmapTech'), timing: val('nmapTiming'), scripts: val('nmapScripts'),
+          script_args: val('nmapScriptArgs'), sV: chk('nmapSv'), sC: chk('nmapSc'),
+          os_detect: chk('nmapOs'), no_ping: chk('nmapPn'), skip_dns: chk('nmapSkipDns'),
+          verbose: chk('nmapVerbose'), aggressive: chk('nmapAggressive'), fragment: chk('nmapFragment'),
+          exclude: val('nmapExclude'), output_normal: chk('nmapOutNormal'), output_xml: chk('nmapOutXml'),
+          extra: val('nmapExtra'),
+        };
+      }
+      if (selectedTool === 'sqlmap') {
+        return {
+          target: val('target-input'), mode: val('sqlmapMode'), request_file: val('sqlmapReq'),
+          data: val('sqlmapData'), crawl_depth: val('sqlmapCrawlDepth'),
+          risk: val('sqlmapRisk'), level: val('sqlmapLevel'), threads: val('sqlmapThreads'),
+          technique: val('sqlmapTechnique'), dbms: val('sqlmapDbms'), tamper: val('sqlmapTamper'),
+          cookie: val('sqlmapCookie'), user_agent: val('sqlmapUA'), proxy: val('sqlmapProxy'),
+          batch: chk('sqlmapBatch'), dbs: chk('sqlmapDbs'), current_db: chk('sqlmapCurDb'),
+          current_user: chk('sqlmapCurUser'), users: chk('sqlmapUsers'), passwords: chk('sqlmapPasswords'),
+          tables: chk('sqlmapTables'), columns: chk('sqlmapColumns'), dump: chk('sqlmapDump'),
+          random_agent: chk('sqlmapRandomAgent'), database: val('sqlmapDb'), table: val('sqlmapTable'),
+          extra: val('sqlmapExtra'),
+        };
+      }
+      return {
+        target: val('target-input'), wordlist: val('dirsearchWordlist'), extensions: val('dirsearchExt'),
+        force_extensions: chk('dirsearchForceExt'), method: val('dirsearchMethod'),
+        threads: val('dirsearchThreads'), delay: val('dirsearchDelay'), cookie: val('dirsearchCookie'),
+        user_agent: val('dirsearchUA'), random_agent: chk('dirsearchRandomAgent'), proxy: val('dirsearchProxy'),
+        header: val('dirsearchHeader'), status_codes: val('dirsearchStatus'), exclude_status: val('dirsearchExStatus'),
+        exclude_size: val('dirsearchExSize'), recursive: chk('dirsearchRecursive'),
+        recursive_depth: val('dirsearchDepth'), output_file: chk('dirsearchOutFile'),
+        follow_redirect: chk('dirsearchFollow'), extra: val('dirsearchExtra'),
+      };
+    }
+
+    // ===== 工具状态列表（三列横排小卡片） =====
+    const TOOL_DESC = { nmap: '端口扫描', sqlmap: 'SQL 注入', dirsearch: '目录枚举' };
+    function renderToolStatus() {
+      const box = $('tool-status-list');
+      box.innerHTML = '';
+      const order = ['nmap', 'sqlmap', 'dirsearch'];
+      for (const key of order) {
+        const t = tools[key] || {};
+        const ok = !!t.available;
+        const div = document.createElement('div');
+        div.className = 'tool-status-item ' + (ok ? 'ready' : 'missing');
+        div.innerHTML = `
+          <div class="tname-row"><span class="tdot"></span><span class="tname">${t.display || key}</span></div>
+          <div class="tdesc">${ok ? TOOL_DESC[key] : '未找到'}</div>
+        `;
+        box.appendChild(div);
+      }
+    }
+
+    function selectTool(key) {
+      selectedTool = key;
+      document.querySelectorAll('.tool-tab').forEach(t => t.classList.toggle('active', t.dataset.tool === key));
+      updatePlaceholder();
+      renderParams();
+    }
+
+    function updatePlaceholder() {
+      const t = tools[selectedTool] || {};
+      $('target-input').placeholder = t.placeholder || '输入目标';
+    }
+
+    // ===== 输出区 =====
+    function writeOutput(text, cls) {
+      const out = $('output');
+      const line = document.createElement('div');
+      if (cls) line.className = cls;
+      line.textContent = text;
+      out.appendChild(line);
+      out.scrollTop = out.scrollHeight;
+    }
+    function clearOutput() { $('output').innerHTML = ''; }
+    function setBadge(text, cls) {
+      const b = $('badge');
+      b.textContent = text;
+      b.className = 'badge' + (cls ? ' ' + cls : '');
+    }
+
+    // ===== 加载工具与设置 =====
+    async function loadTools() {
+      try { const res = await fetch('/api/tools'); tools = await res.json(); }
+      catch (e) { tools = {}; }
+      renderToolStatus();
+      updatePlaceholder();
+    }
+    async function loadSettings() {
+      try {
+        const res = await fetch('/api/settings');
+        settings = await res.json();
+        providers = settings.providers || [];
+        aiFavorites = (settings.ai && settings.ai.favorites) || [];
+        syncSession(settings.session_token);
+      } catch (e) { settings = {}; providers = []; aiFavorites = []; }
+    }
+
+    // ===== 扫描 =====
+    async function startScan() {
+      if (running) return;
+      const target = val('target-input');
+      if (!target) { writeOutput('⚠ 请先输入目标地址', 'err'); return; }
+
+      running = true;
+      $('run-btn').disabled = true;
+      $('stop-btn').style.display = 'block';
+      clearOutput();
+      setBadge('扫描中…', '');
+      $('interpret-area').classList.remove('show');
+      $('interpret-result').textContent = '';
+
+      const params = collectParams();
+      try {
+        const res = await fetch('/api/run', {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tool: selectedTool, target: params.target, params }),
+        });
+        const data = await res.json();
+        if (data.error) { writeOutput('✗ ' + data.error, 'err'); finishRun('err'); return; }
+        currentScanId = data.scan_id;
+        currentRecordId = data.scan_id;
+        if (data.command) writeOutput('$ 本次实际执行的命令：' + data.command, 'sys');
+        attachStream(currentScanId);
+      } catch (e) {
+        writeOutput('✗ 请求失败: ' + e.message, 'err');
+        finishRun('err');
+      }
+    }
+
+    function attachStream(scanId) {
+      eventSource = new EventSource('/api/scan/' + scanId + '/stream');
+      eventSource.onmessage = (ev) => {
+        const msg = JSON.parse(ev.data);
+        if (msg.type === 'line') {
+          writeOutput(msg.text);
+        } else if (msg.type === 'done') {
+          eventSource.close();
+          if (msg.status === 'finished') {
+            writeOutput('✓ 扫描完成', 'sys');
+            setBadge('已完成', 'done');
+            $('interpret-area').classList.add('show');
+          } else if (msg.status === 'stopped') {
+            writeOutput('■ 扫描已停止', 'sys');
+            setBadge('已停止', '');
+          } else {
+            writeOutput('✗ 扫描出错（exit ' + msg.exit_code + '）', 'err');
+            setBadge('出错', 'err');
+          }
+          finishRun(msg.status === 'finished' ? 'done' : (msg.status === 'error' ? 'err' : ''));
+          loadHistory();
+        }
+      };
+      eventSource.onerror = () => { if (running) { eventSource.close(); finishRun('err'); } };
+    }
+
+    async function stopScan() {
+      if (!running || !currentScanId) return;
+      try {
+        await fetch('/api/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scan_id: currentScanId }) });
+        writeOutput('■ 正在停止…', 'sys');
+      } catch (e) { writeOutput('✗ 停止失败: ' + e.message, 'err'); }
+    }
+
+    function finishRun(badgeCls) {
+      running = false;
+      $('run-btn').disabled = false;
+      $('stop-btn').style.display = 'none';
+      currentScanId = null;
+      if (eventSource) { eventSource.close(); eventSource = null; }
+      if (!badgeCls) setBadge('', '');
+    }
+
+    // ===== 复制 / 清空 =====
+    function copyOutput() {
+      const text = $('output').innerText;
+      if (!text) return;
+      const done = () => flash('copy-btn');
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(text).then(done).catch(() => fallbackCopy(text));
+      } else fallbackCopy(text);
+    }
+    function fallbackCopy(text) {
+      const ta = document.createElement('textarea');
+      ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+      document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); } catch (e) {}
+      document.body.removeChild(ta);
+      flash('copy-btn');
+    }
+    function flash(id) {
+      const el = $(id); const old = el.textContent;
+      el.textContent = '已复制 ✓';
+      setTimeout(() => { el.textContent = old; }, 1200);
+    }
+
+    // ===== 历史 =====
+    async function loadHistory() {
+      try {
+        const res = await fetch('/api/history');
+        const list = await res.json();
+        const box = $('history');
+        box.innerHTML = '';
+        if (!list.length) { box.innerHTML = '<div class="history-empty">暂无记录</div>'; return; }
+        for (const item of list) {
+          const div = document.createElement('div');
+          div.className = 'history-item';
+          const stMap = { 'finished': ['完成','done'], 'error': ['出错','err'], 'stopped': ['已停止',''], 'running': ['进行中','run'] };
+          const [stText, stCls] = stMap[item.status] || [item.status, ''];
+          div.innerHTML = `<span class="t">${item.display}</span><span class="tg">${item.target}</span><span class="st ${stCls}">${stText}</span>`;
+          div.addEventListener('click', () => viewHistory(item.id));
+          box.appendChild(div);
+        }
+      } catch (e) {}
+    }
+
+    async function viewHistory(scanId) {
+      try {
+        const res = await fetch('/api/scan/' + scanId);
+        const data = await res.json();
+        currentRecordId = scanId;
+        clearOutput();
+        writeOutput(`$ 历史记录：${data.display} → ${data.target}`, 'sys');
+        if (data.command) writeOutput('$ 命令：' + data.command, 'sys');
+        (data.lines || []).forEach(l => writeOutput(l));
+        if (data.status === 'finished') { writeOutput('✓ 扫描完成', 'sys'); $('interpret-area').classList.add('show'); }
+        else if (data.status === 'stopped') writeOutput('■ 扫描已停止', 'sys');
+        else if (data.status === 'error') writeOutput('✗ 扫描出错', 'err');
+        setBadge('历史 · ' + (data.display || ''), '');
+        $('interpret-result').textContent = data.analysis || '';
+      } catch (e) { writeOutput('✗ 无法读取该记录', 'err'); }
+    }
+
+    // ===== AI 解读 =====
+    async function interpret() {
+      if (!currentRecordId) { writeOutput('⚠ 没有可解读的任务', 'err'); return; }
+      const btn = $('interpret-btn');
+      btn.disabled = true;
+      btn.textContent = '解读中…';
+      try {
+        const res = await fetch('/api/ai/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task_id: currentRecordId }) });
+        const data = await res.json();
+        if (data.error) { $('interpret-result').textContent = data.error; }
+        else { $('interpret-result').textContent = data.analysis; }
+      } catch (e) { $('interpret-result').textContent = '解读失败: ' + e.message; }
+      finally { btn.disabled = false; btn.textContent = '生成解读'; }
+    }
+
+    // ===== 标签切换 =====
+    function switchPage(page) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.page === page));
+      document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
+      if (page === 'trajectory') loadTrajectory();
+    }
+    function goConsole() { switchPage('console'); }
+    function goTool(tool) { switchPage('console'); selectTool(tool); }
+    function useTarget(tool, target) {
+      goTool(tool);
+      setTimeout(() => { $('target-input').value = target; }, 60);
+    }
+
+    // ===== AI 设置 =====
+    let selectedVendorId = null;
+    function openAiModal() {
+      $('ai-base').value = (settings.ai && settings.ai.base_url) || '';
+      $('ai-model').value = (settings.ai && settings.ai.model) || '';
+      $('ai-key').value = (settings.ai && settings.ai.api_key) || '';
+      renderVendors();
+      $('ai-modal').classList.add('show');
+    }
+    function renderVendors() {
+      const grid = $('vendor-grid');
+      if (!grid) return;
+      grid.innerHTML = '';
+      // 收藏的排前面
+      const sorted = [...providers].sort((a, b) => {
+        const af = aiFavorites.includes(a.id) ? 0 : 1;
+        const bf = aiFavorites.includes(b.id) ? 0 : 1;
+        return af - bf;
+      });
+      for (const p of sorted) {
+        const fav = aiFavorites.includes(p.id);
+        const card = document.createElement('div');
+        card.className = 'vendor-card' + (selectedVendorId === p.id ? ' selected' : '');
+        card.innerHTML = `
+          <span class="vendor-star ${fav ? 'faved' : ''}" title="收藏">${fav ? '★' : '☆'}</span>
+          <div class="vendor-icon" style="background:${(p.color || '#5da8ff')}22; color:${p.color || '#5da8ff'};">${p.icon || p.name[0]}</div>
+          <span class="vendor-name">${p.name}</span>
+        `;
+        card.querySelector('.vendor-star').addEventListener('click', (e) => { e.stopPropagation(); toggleVendorFav(p.id); });
+        card.addEventListener('click', () => selectVendor(p.id));
+        grid.appendChild(card);
+      }
+    }
+    function toggleVendorFav(id) {
+      if (aiFavorites.includes(id)) aiFavorites = aiFavorites.filter(n => n !== id);
+      else aiFavorites.push(id);
+      renderVendors();
+    }
+    function selectVendor(id) {
+      selectedVendorId = id;
+      const p = providers.find(v => v.id === id);
+      if (!p) return;
+      $('ai-base').value = p.base_url;
+      $('ai-model').value = p.model;
+      switchVendorTab('custom');
+      renderVendors();
+    }
+    function switchVendorTab(tab) {
+      $('vendor-tab-preset').classList.toggle('active', tab === 'preset');
+      $('vendor-tab-custom').classList.toggle('active', tab === 'custom');
+      $('vendor-grid').style.display = tab === 'preset' ? 'grid' : 'none';
+      $('vendor-custom').style.display = tab === 'custom' ? 'block' : 'none';
+    }
+    async function saveAi() {
+      await fetch('/api/settings/ai', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ base_url: $('ai-base').value.trim(), model: $('ai-model').value.trim(), api_key: $('ai-key').value.trim(), favorites: aiFavorites }),
+      });
+      $('ai-modal').classList.remove('show');
+      await loadSettings();
+    }
+
+    // ===== 工具路径 =====
+    function openToolsModal() {
+      $('tp-nmap').value = settings.tools.nmap || '';
+      $('tp-sqlmap').value = settings.tools.sqlmap || '';
+      $('tp-dirsearch').value = settings.tools.dirsearch || '';
+      $('tp-dirsearch-python').value = settings.tools.dirsearch_python || '';
+      $('tools-modal').classList.add('show');
+    }
+    async function saveTools() {
+      await fetch('/api/settings/tools', {
+        method: 'PUT', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nmap: $('tp-nmap').value.trim(), sqlmap: $('tp-sqlmap').value.trim(), dirsearch: $('tp-dirsearch').value.trim(), dirsearch_python: $('tp-dirsearch-python').value.trim() }),
+      });
+      $('tools-modal').classList.remove('show');
+      await loadSettings();
+      await loadTools();
+    }
+
+    // ===== 轨迹 =====
+    async function loadTrajectory() {
+      let tasks = [];
+      try { const res = await fetch('/api/history'); tasks = await res.json(); } catch (e) {}
+      const recs = getStageRecords();
+      const done = STAGES.slice(0, 3).map(s => !!(recs[s.tool] && recs[s.tool].summary));
+      let currentIdx = done.findIndex(d => !d);
+      if (currentIdx === -1) currentIdx = 3;
+      renderGuide(recs, currentIdx);
+      renderChain(done, currentIdx);
+      renderStageCards(recs, done, currentIdx, tasks);
+      renderTimeline(tasks);
+    }
+
+    function renderGuide(recs, currentIdx) {
+      const box = $('guide-text');
+      if (currentIdx === 0) {
+        box.innerHTML = `<span class="chip" style="border-style:solid;">第 1 步 · Nmap 侦察</span> 先用 Nmap 扫描目标，摸清开放端口与服务。扫完后回到这里点「AI 记录此阶段」。`;
+        return;
+      }
+      if (currentIdx === 3) {
+        box.innerHTML = `<span class="chip" style="border-style:solid;">最终步 · AI 分析</span> 三个阶段均已有记录。可在控制台对任意任务生成 AI 解读，汇总成报告。`;
+        return;
+      }
+      const s = STAGES[currentIdx];
+      const prev = STAGES[currentIdx - 1];
+      const prevRec = recs[prev.tool];
+      const targets = (prevRec && prevRec.suggested_targets) || [];
+      const targetChips = targets.length ? targets.map(t => `<span class="chip" onclick="useTarget('${s.tool}', '${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join('') : '';
+      const guidance = prevRec && prevRec.next_guidance;
+      box.innerHTML = `
+        <span class="chip" style="border-style:solid;">第 ${currentIdx + 1} 步 · ${s.name}</span>
+        ${guidance ? escapeHtml(guidance) : `上一阶段已完成（${prev.name}），可以用 ${s.name.split(' ')[0]} 继续推进。`}
+        ${targetChips ? `<div style="margin-top:0.4rem;">${targetChips}</div>` : ''}
+      `;
+    }
+
+    const STAGE_ICONS = ['⌁', '≡', '⌕', '✦'];
+    function renderChain(done, currentIdx) {
+      const box = $('chain');
+      box.innerHTML = '';
+      STAGES.forEach((s, i) => {
+        const isDone = i < 3 ? done[i] : (currentIdx === 3);
+        const state = isDone ? 'done' : (i === currentIdx ? 'current' : 'locked');
+        const badge = isDone ? '<span class="chain-badge">✓</span>' : '';
+        const node = document.createElement('div');
+        node.className = 'chain-node ' + state;
+        node.title = s.desc;
+        node.innerHTML = `
+          <div class="chain-circle">${STAGE_ICONS[i] || '?'}${badge}</div>
+          <div>
+            <div class="chain-name">${s.name}</div>
+            <div class="chain-desc">${s.desc}</div>
+          </div>
+        `;
+        box.appendChild(node);
+        if (i < STAGES.length - 1) {
+          const line = document.createElement('div');
+          const lineDone = i < 3 ? done[i] : false;
+          line.className = 'chain-line ' + (lineDone ? 'done' : 'todo');
+          box.appendChild(line);
+        }
+      });
+    }
+
+    function renderStageCards(recs, done, currentIdx, tasks) {
+      const box = $('stage-cards');
+      box.innerHTML = '';
+      STAGES.forEach((s, i) => {
+        const card = document.createElement('div');
+        card.className = 'stage-card glass';
+        if (i === 3) {
+          card.innerHTML = `<div class="sc-head"><span class="sc-name">${s.name}</span><span class="sc-badge ${currentIdx === 3 ? 'current' : 'locked'}">${currentIdx === 3 ? '进行中' : '待前三阶段完成'}</span></div><div style="font-size:0.85rem;color:var(--text-dim);">在控制台选中任意历史任务，点「生成解读」让 AI 汇总。</div>`;
+          box.appendChild(card);
+          return;
+        }
+        const rec = recs[s.tool];
+        const state = done[i] ? 'done' : (i === currentIdx ? 'current' : 'locked');
+        const badge = state === 'done' ? '已完成' : (state === 'current' ? '进行中' : '未开始');
+        let actionsHtml = '';
+        if (state !== 'locked') {
+          const recordLabel = recordingStage === s.tool ? 'AI 记录中…' : (rec ? '重新 AI 记录' : 'AI 记录此阶段');
+          actionsHtml += `<button class="stage-btn primary" data-act="record" data-tool="${s.tool}" ${recordingStage === s.tool ? 'disabled' : ''}>${recordLabel}</button>`;
+        }
+        if (rec && !rec.manual) actionsHtml += `<button class="stage-btn" data-act="clear" data-tool="${s.tool}">清除记录</button>`;
+        if (!rec && state === 'current') actionsHtml += `<button class="stage-btn" data-act="manual" data-tool="${s.tool}">手动标记完成</button>`;
+
+        let recHtml = '';
+        if (rec && rec.summary) {
+          const findings = (rec.key_findings || []).map(f => `<span class="finding-chip">${escapeHtml(f)}</span>`).join('');
+          const targets = (rec.suggested_targets || []).length
+            ? (rec.suggested_targets.map(t => `<span class="target-chip" onclick="useTarget('${STAGES[i + 1] ? STAGES[i + 1].tool : 'nmap'}', '${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join(''))
+            : '';
+          const time = rec.recorded_at ? new Date(rec.recorded_at * 1000).toLocaleString('zh-CN') : '';
+          recHtml = `<div class="ai-note"><div class="note-head">✦ AI 阶段记录 ${rec.manual ? '（手动标记）' : ''} · ${time}</div>${escapeHtml(rec.summary)}${findings ? `<div style="margin-top:0.5rem;">${findings}</div>` : ''}${rec.next_guidance ? `<div class="guidance-line"><span class="g-label">下一步指引：</span>${escapeHtml(rec.next_guidance)}</div>` : ''}${targets ? `<div style="margin-top:0.5rem;">建议目标：${targets}</div>` : ''}</div>`;
+        } else if (state === 'current') {
+          recHtml = `<div style="font-size:0.82rem;color:var(--text-dim);line-height:1.6;">扫描完成后点「AI 记录此阶段」：AI 会提炼本阶段发现，并给出下一阶段建议。</div>`;
+        } else if (state === 'locked') {
+          recHtml = `<div style="font-size:0.82rem;color:#556b8a;">完成上一阶段后解锁。</div>`;
+        }
+        card.innerHTML = `<div class="sc-head"><span class="sc-name">${s.name}</span><span class="sc-badge ${state}">${badge}</span></div><div class="sc-actions">${actionsHtml}</div>${recHtml}`;
+        box.appendChild(card);
+      });
+      box.querySelectorAll('[data-act="record"]').forEach(b => b.addEventListener('click', () => recordStage(b.dataset.tool)));
+      box.querySelectorAll('[data-act="manual"]').forEach(b => b.addEventListener('click', () => markStage(b.dataset.tool)));
+      box.querySelectorAll('[data-act="clear"]').forEach(b => b.addEventListener('click', () => clearStage(b.dataset.tool)));
+    }
+
+    function renderTimeline(tasks) {
+      const box = $('timeline');
+      box.innerHTML = '';
+      if (!tasks.length) { box.innerHTML = '<div class="history-empty">还没有足迹 —— 去控制台发起第一次扫描吧</div>'; return; }
+      const toolColor = { nmap: '#5a9fe0', dirsearch: '#5cbf7a', sqlmap: '#c88ee0' };
+      const ordered = [...tasks].sort((a, b) => a.start_time - b.start_time);
+      for (const r of ordered) {
+        const div = document.createElement('div');
+        div.className = 'tl-item';
+        const timeStr = new Date(r.start_time * 1000).toLocaleString('zh-CN');
+        const statusCls = r.status === 'finished' ? 'done' : (r.status === 'error' ? 'err' : '');
+        div.innerHTML = `<span class="tl-time">${timeStr}</span><span class="tl-dot" style="background:${toolColor[r.tool] || '#7a94b8'}"></span><span class="tl-text"><span class="${statusCls}">${r.display}</span> → ${escapeHtml(r.target)}（${r.status}）</span>`;
+        box.appendChild(div);
+      }
+    }
+
+    async function recordStage(tool) {
+      if (recordingStage) return;
+      recordingStage = tool;
+      loadTrajectory();
+      try {
+        const res = await fetch('/api/ai/stage', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tool }) });
+        const d = await res.json();
+        if (d.error) { alert(d.error); }
+        else { const recs = getStageRecords(); recs[tool] = { ...d, recorded_at: Date.now() / 1000 }; saveStageRecords(recs); }
+      } catch (e) { alert('请求失败：' + e); }
+      recordingStage = null;
+      loadTrajectory();
+    }
+
+    function markStage(tool) {
+      const recs = getStageRecords();
+      recs[tool] = { summary: '（手动标记完成，未生成 AI 记录）', key_findings: [], next_guidance: '', suggested_targets: [], recorded_at: Date.now() / 1000, manual: true };
+      saveStageRecords(recs);
+      loadTrajectory();
+    }
+
+    function clearStage(tool) {
+      const recs = getStageRecords();
+      delete recs[tool];
+      saveStageRecords(recs);
+      loadTrajectory();
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
+    // ===== 事件绑定 =====
+    $('run-btn').addEventListener('click', startScan);
+    $('stop-btn').addEventListener('click', stopScan);
+    $('copy-btn').addEventListener('click', copyOutput);
+    $('clear-btn').addEventListener('click', () => { clearOutput(); setBadge('', ''); $('interpret-area').classList.remove('show'); });
+    $('interpret-btn').addEventListener('click', interpret);
+    document.querySelectorAll('.tab').forEach(t => t.addEventListener('click', () => switchPage(t.dataset.page)));
+    document.querySelectorAll('.tool-tab').forEach(t => t.addEventListener('click', () => selectTool(t.dataset.tool)));
+    $('tools-settings-btn').addEventListener('click', openToolsModal);
+    // DirSearch 递归联动：勾选"启用递归"才启用深度框；不勾则深度框禁用且不生效
+    // 注意：dirsearch 参数面板是动态渲染的，元素可能不存在，必须加空值保护
+    function syncDirsearchRec() {
+      const chkEl = $('dirsearchRecursive');
+      const d = $('dirsearchDepth');
+      if (!chkEl || !d) return;
+      const on = chkEl.checked;
+      d.disabled = !on;
+      d.style.opacity = on ? '1' : '0.4';
+      if (!on) d.value = '0';
+    }
+    function bindDirsearchRec() {
+      const chkEl = $('dirsearchRecursive');
+      if (!chkEl) return;
+      chkEl.addEventListener('change', syncDirsearchRec);
+      syncDirsearchRec();
+    }
+
+    $('ai-settings-btn').addEventListener('click', openAiModal);
+    $('vendor-tab-preset').addEventListener('click', () => switchVendorTab('preset'));
+    $('vendor-tab-custom').addEventListener('click', () => switchVendorTab('custom'));
+    $('tools-cancel').addEventListener('click', () => $('tools-modal').classList.remove('show'));
+    $('ai-cancel').addEventListener('click', () => $('ai-modal').classList.remove('show'));
+    $('tools-save').addEventListener('click', saveTools);
+    $('ai-save').addEventListener('click', saveAi);
+    $('tools-modal').addEventListener('click', (e) => { if (e.target === $('tools-modal')) $('tools-modal').classList.remove('show'); });
+    $('ai-modal').addEventListener('click', (e) => { if (e.target === $('ai-modal')) $('ai-modal').classList.remove('show'); });
+
+    // ===== 初始化 =====
+    (async function init() {
+      await loadSettings();
+      await loadTools();
+      renderParams();
+      loadHistory();
+    })();
+  </script>
+</body>
+</html>
