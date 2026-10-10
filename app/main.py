@@ -32,13 +32,16 @@ SETTINGS_FILE = DATA_DIR / "settings.json"
 # 便携 Python（随项目打包，免安装）。存在就用它，保证换电脑也能跑。
 BUNDLED_PYTHON = BASE_DIR / "runtime" / "python" / "python.exe"
 
+_PY = str(BUNDLED_PYTHON) if BUNDLED_PYTHON.exists() else sys.executable
+
 DEFAULT_TOOL_PATHS = {
     "nmap": str(TOOLS_DIR / "nmap" / "nmap.exe"),
-    "sqlmap": str(TOOLS_DIR / "sqlmap" / "sqlmap.py"),
-    # dirsearch 用启动器跑（启动器会把 dirsearch 目录加进 sys.path）
+    # sqlmap / dirsearch 都用启动器跑：
+    # 便携 Python 的 sys.path 不含脚本目录，启动器会把它加进去，否则会报 missing modules
+    "sqlmap": str(BASE_DIR / "runtime" / "run_sqlmap.py"),
+    "sqlmap_python": _PY,
     "dirsearch": str(BASE_DIR / "runtime" / "run_dirsearch.py"),
-    # 用项目自带的便携 Python 跑 dirsearch；没有则回退到主程序自己的解释器
-    "dirsearch_python": str(BUNDLED_PYTHON) if BUNDLED_PYTHON.exists() else sys.executable,
+    "dirsearch_python": _PY,
 }
 
 TOOL_META = {
@@ -241,7 +244,7 @@ def _build_nmap(target: str, p: dict) -> list:
 
 
 def _build_sqlmap(target: str, p: dict) -> list:
-    cmd = [sys.executable, get_tool_path("sqlmap")]
+    cmd = [get_tool_path("sqlmap_python"), get_tool_path("sqlmap")]
     mode = p.get("mode", "url")
 
     # 注入方式
@@ -839,6 +842,7 @@ async def put_ai_settings(req: AiSettingsRequest):
 class ToolsSettingsRequest(BaseModel):
     nmap: str = ""
     sqlmap: str = ""
+    sqlmap_python: str = ""
     dirsearch: str = ""
     dirsearch_python: str = ""
 
@@ -848,6 +852,7 @@ async def put_tools_settings(req: ToolsSettingsRequest):
     SETTINGS["tools"] = {
         "nmap": req.nmap.strip(),
         "sqlmap": req.sqlmap.strip(),
+        "sqlmap_python": req.sqlmap_python.strip(),
         "dirsearch": req.dirsearch.strip(),
         "dirsearch_python": req.dirsearch_python.strip(),
     }

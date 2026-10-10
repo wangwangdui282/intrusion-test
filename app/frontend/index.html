@@ -899,8 +899,10 @@
       <div class="hint">自动检测不到时，手动填完整路径（绝对路径）即可。</div>
       <label>Nmap（nmap.exe）</label>
       <input autocomplete="off" id="tp-nmap" type="text">
-      <label>SQLMap（sqlmap.py）</label>
+      <label>SQLMap 启动器（run_sqlmap.py）</label>
       <input autocomplete="off" id="tp-sqlmap" type="text">
+      <label>SQLMap 用的 Python</label>
+      <input autocomplete="off" id="tp-sqlmap-python" type="text">
       <label>DirSearch（dirsearch.py）</label>
       <input autocomplete="off" id="tp-dirsearch" type="text">
       <label>DirSearch 用的 Python（.venv 里的 python.exe）</label>
@@ -1445,6 +1447,7 @@
     function openToolsModal() {
       $('tp-nmap').value = settings.tools.nmap || '';
       $('tp-sqlmap').value = settings.tools.sqlmap || '';
+      $('tp-sqlmap-python').value = settings.tools.sqlmap_python || '';
       $('tp-dirsearch').value = settings.tools.dirsearch || '';
       $('tp-dirsearch-python').value = settings.tools.dirsearch_python || '';
       $('tools-modal').classList.add('show');
@@ -1452,7 +1455,7 @@
     async function saveTools() {
       await fetch('/api/settings/tools', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nmap: $('tp-nmap').value.trim(), sqlmap: $('tp-sqlmap').value.trim(), dirsearch: $('tp-dirsearch').value.trim(), dirsearch_python: $('tp-dirsearch-python').value.trim() }),
+        body: JSON.stringify({ nmap: $('tp-nmap').value.trim(), sqlmap: $('tp-sqlmap').value.trim(), sqlmap_python: $('tp-sqlmap-python').value.trim(), dirsearch: $('tp-dirsearch').value.trim(), dirsearch_python: $('tp-dirsearch-python').value.trim() }),
       });
       $('tools-modal').classList.remove('show');
       await loadSettings();
