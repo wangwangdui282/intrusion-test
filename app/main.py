@@ -58,7 +58,7 @@ TOOL_META = {
     "dirsearch": {
         "display": "DirSearch",
         "desc": "找网站背后藏着哪些文件和入口",
-        "placeholder": "比如 http://127.0.0.1/pikachu-master/",
+        "placeholder": "比如 http://127.0.0.1/",
     },
 }
 
@@ -86,9 +86,36 @@ STAGES = [
 ANSI_RE = re.compile(r"\x1b\[[0-9;]*[a-zA-Z]|\x1b\][^\x07]*(?:\x07|\x1b\\)")
 
 
+# dirsearch 会把命中结果直接贴在进度条同一行后面，形如：
+#   [####    ] 83%  5/6  16/s  job:1/1  errors:0[17:46:38] 301 - 0B - /api -> /api/
+# 下面这个正则用来把「[时间] 状态码 ...」这种命中片段从行里剥出来
+_HIT_INLINE_RE = re.compile(r"\[\d{2}:\d{2}:\d{2}\]\s*(\d{3})\s+[^\[\r\n]*")
+
+
+def split_progress_and_hits(line: str) -> list:
+    """把一行里的「进度条」与「命中结果」拆开，返回需要展示的片段列表。"""
+    if not line:
+        return []
+    # 先找出所有命中片段
+    hits = _HIT_INLINE_RE.findall(line)
+    out = []
+    if hits:
+        # 逐个提取完整片段（含 URL 等内容）
+        for m in _HIT_INLINE_RE.finditer(line):
+            frag = m.group(0).strip()
+            if frag:
+                out.append(frag)
+        return out
+    return [line]
+
+
 def clean_ansi(text: str) -> str:
-    """去掉终端 ANSI 转义序列。"""
-    return ANSI_RE.sub("", text)
+    """去掉终端 ANSI 转义序列，并把回车符统一成换行。
+
+    dirsearch 等工具用 \r 刷新进度条，若不处理会把真正的扫描结果“覆盖”掉。
+    """
+    text = ANSI_RE.sub("", text)
+    return text.replace("\r\n", "\n").replace("\r", "\n")
 
 
 # ============ 持久化读写 ============
@@ -110,16 +137,12 @@ def save_json(path, data):
 SETTINGS = load_json(SETTINGS_FILE, {"ai": {}, "tools": {}})
 SETTINGS.setdefault("ai", {})
 SETTINGS.setdefault("tools", {})
-# 历史记录不跨会话保留：每次启动服务都是全新会话（工具路径、AI 设置仍保留）
-RECORDS = []
-# 启动时清掉上次留下的历史文件，避免磁盘上残留旧记录
-try:
-    if HISTORY_FILE.exists():
-        HISTORY_FILE.unlink()
-except Exception:
-    pass
-# 每次启动生成一个会话标识，前端据此判断是否需要清掉浏览器里存的轨迹记录
-SESSION_TOKEN = uuid.uuid4().hex
+# 历史记录跨会话保留：启动时读回上次的任务，方便复用（尤其是 CVE 检测要选历史任务）
+RECORDS = load_json(HISTORY_FILE, [])
+if not isinstance(RECORDS, list):
+    RECORDS = []
+# 会话标识固定，前端不再因为“会话变了”而清空本地轨迹记录
+SESSION_TOKEN = "persistent"
 
 settings_lock = threading.RLock()
 records_lock = threading.RLock()
@@ -537,9 +560,19 @@ class ScanSession:
     def _reader(self):
         try:
             for raw in iter(self.proc.stdout.readline, b""):
-                line = clean_ansi(raw.decode("utf-8", errors="replace")).rstrip("\r\n")
-                self.record["lines"].append(line)
-                self.q.put(line)
+                text = clean_ansi(raw.decode("utf-8", errors="replace"))
+                # 一段可能含多个 \r/\n 分隔的片段（进度条），逐个处理
+                for piece in text.split("\n"):
+                    line = piece.strip()
+                    if not line:
+                        continue
+                    # 把粘在进度条后面的命中结果剥出来，单独成行
+                    for frag in split_progress_and_hits(line):
+                        frag = frag.strip()
+                        if not frag:
+                            continue
+                        self.record["lines"].append(frag)
+                        self.q.put(frag)
         finally:
             try:
                 self.proc.stdout.close()
@@ -1030,46 +1063,247 @@ def query_nvd_throttled(keyword: str, timeout: int = 12) -> list:
 
 
 class CveRequest(BaseModel):
-    task_id: str
+    task_ids: list = []      # 勾选的任务 id 列表
+    use_ai: bool = True      # 规则没命中时，是否用 AI 补充
 
 
 @app.post("/api/cve/scan")
 async def cve_scan(req: CveRequest):
-    """从任务输出里提取产品特征，去 NVD 查真实 CVE。"""
-    rec = get_record(req.task_id)
-    if rec is None:
-        return JSONResponse({"error": "任务不存在"}, status_code=404)
+    """对勾选的多个任务做 CVE 检测：
+    - 规则优先（DirSearch 路径 / SQLMap 注入 → 直接给风险结论）
+    - Nmap 走 NVD 真实查询
+    - 规则没覆盖且开启了 AI，则用 AI 补充
+    """
+    ids = [i for i in (req.task_ids or []) if i]
+    if not ids:
+        return JSONResponse({"error": "没有选择任务"}, status_code=400)
 
-    output = "\n".join(rec.get("lines", []))
-    if not output.strip():
-        return JSONResponse({"matched": [], "queried": [], "note": "该任务没有输出内容"})
+    all_items, queried, sources = [], [], []
+    nvd_budget = 6          # 最多查 NVD 的产品数（受速率限制）
 
-    products = extract_products_from_output(rec.get("tool", ""), output)
-    if not products:
-        return JSONResponse({"matched": [], "queried": [], "note": "未能从输出中识别出可查询的产品/版本特征"})
+    for tid in ids:
+        rec = get_record(tid)
+        if rec is None:
+            continue
+        tool = rec.get("tool", "")
+        output = "\n".join(rec.get("lines", []))
+        src = {"task_id": tid, "tool": tool, "display": rec.get("display", tool),
+               "target": rec.get("target", "")}
+        sources.append(src)
+        if not output.strip():
+            continue
 
-    queried, matched = [], []
-    seen_ids = set()
-    for p in products:
-        keyword = f"{p['product']} {p['version']}".strip()
-        queried.append(keyword)
-        for cve in query_nvd_throttled(keyword):
-            if cve["id"] in seen_ids:
-                continue
-            # 提高把握：描述里必须真的提到这个版本号，否则可能只是泛泛相关
-            ver = p["version"]
-            if ver and ver not in (cve.get("desc") or ""):
-                continue
-            seen_ids.add(cve["id"])
-            cve["matched_on"] = keyword
-            cve["evidence"] = p.get("evidence", "")
-            matched.append(cve)
+        # 1) 规则匹配（DirSearch / SQLMap）
+        for hit in match_rules(tool, output):
+            hit["task_id"] = tid
+            hit["target"] = rec.get("target", "")
+            all_items.append(hit)
 
-    # 按 CVSS 分数从高到低排
-    matched.sort(key=lambda x: (x.get("score") or 0), reverse=True)
+        # 2) Nmap：提取产品版本 → 查 NVD
+        if tool == "nmap":
+            products = extract_products_from_output(tool, output)
+            for p in products:
+                if nvd_budget <= 0:
+                    break
+                keyword = (p["product"] + " " + p["version"]).strip()
+                queried.append(keyword)
+                nvd_budget -= 1
+                for cve in query_nvd_throttled(keyword):
+                    desc = (cve.get("desc") or "").lower()
+                    ver = (p.get("version") or "").lower()
+                    prod = (p.get("product") or "").lower()
+                    if ver and ver in desc:
+                        conf, label = "high", "版本精确匹配"
+                    elif len(ver.split(".")) >= 2 and ".".join(ver.split(".")[:2]) in desc:
+                        conf, label = "medium", "版本近似匹配"
+                    else:
+                        conf, label = "low", "产品名相关"
+                    all_items.append({
+                        "kind": "cve",
+                        "id": cve["id"],
+                        "title": cve["id"],
+                        "desc": (cve.get("desc") or "")[:400],
+                        "score": cve.get("score"),
+                        "severity": (cve.get("severity") or "").upper(),
+                        "url": cve.get("url"),
+                        "confidence": conf,
+                        "confidence_label": label,
+                        "matched_on": keyword,
+                        "source_tool": "nmap",
+                        "task_id": tid,
+                        "target": rec.get("target", ""),
+                    })
+
+    # 3) AI 补充：规则一条没命中时，让 AI 看看有没有可疑点
+    ai_note = ""
+    if req.use_ai and not any(i.get("kind") == "rule" for i in all_items):
+        try:
+            ai_hits, ai_err = await ai_supplement_cve(sources, all_items)
+            if ai_hits:
+                all_items.extend(ai_hits)
+            elif ai_err:
+                ai_note = ai_err
+        except Exception as e:
+            ai_note = "AI 补充失败：" + str(e)
+
+    def sort_key(x):
+        order = {"high": 0, "medium": 1, "low": 2}
+        return (order.get((x.get("confidence") or "low").lower(), 3),
+                -(x.get("score") or 0))
+    all_items.sort(key=sort_key)
 
     return JSONResponse({
-        "matched": matched[:12],
+        "items": all_items[:40],
         "queried": queried,
-        "note": "" if matched else "未在 NVD 中匹配到相关 CVE",
+        "sources": sources,
+        "ai_note": ai_note,
+        "note": "" if all_items else "未匹配到相关信息",
     })
+
+# ============ CVE：规则表（规则优先，AI 补充）============
+
+# DirSearch：敏感路径 → 已知风险（这些不查 NVD，而是直接给出风险提示）
+DIRSEARCH_RULES = [
+    (r"\.git(/|$|\.)",        "Git 源码泄露", "CWE-538", "网站 .git 目录可访问，攻击者可下载全部源码，从中找出密钥、接口和更多漏洞", "high"),
+    (r"\.svn(/|$)",            "SVN 源码泄露", "CWE-538", "SVN 版本控制目录可访问，可能泄露源码与历史版本", "high"),
+    (r"\.env",                 "环境变量文件泄露", "CWE-200", ".env 文件常含数据库口令、API 密钥等敏感配置", "high"),
+    (r"\.ds_store",            "DS_Store 文件泄露", "CWE-538", "macOS 索引文件，可能泄露目录结构与文件名", "medium"),
+    (r"config\.(php|asp|jsp|json|yml|yaml|xml|ini|bak|old)",
+                                "配置文件暴露", "CWE-200", "配置文件可能包含数据库凭据、密钥等敏感信息", "high"),
+    (r"\.(sql|dump|bak|old|swp|zip|tar|tar\.gz|tgz|rar|7z)$",
+                                "备份/源码文件暴露", "CWE-530", "备份文件可直接下载，常含完整源码或数据库内容", "high"),
+    (r"(phpinfo|info\.php|test\.php)", "PHP 信息页暴露", "CWE-200", "phpinfo 会泄露 PHP 版本、扩展、绝对路径等大量信息", "medium"),
+    (r"(admin|manage|manager|console|dashboard)",
+                                "管理后台入口", "CWE-284", "存在管理入口，可尝试弱口令或越权访问", "medium"),
+    (r"(backup|bak|old|copy)(/|\.|$)", "备份目录/文件", "CWE-530", "可能残留旧版本文件，存在敏感信息泄露风险", "medium"),
+    (r"\.(log)$",              "日志文件暴露", "CWE-532", "日志可能包含路径、账号、内部接口等敏感信息", "medium"),
+    (r"(upload|file|files)(/|\.|$)", "文件上传/存储入口", "CWE-434", "存在文件上传或存储功能，注意任意文件上传漏洞", "medium"),
+    (r"(\.htaccess|\.htpasswd)", "Apache 配置文件暴露", "CWE-538", "可能泄露访问控制规则或认证凭据", "medium"),
+    (r"(robots\.txt)",         "robots.txt 信息", "CWE-200", "可能暴露站点不希望被收录的路径（往往是敏感目录）", "low"),
+    (r"(swagger|api-docs|openapi)", "API 文档暴露", "CWE-200", "接口文档暴露，便于攻击者了解全部接口", "medium"),
+]
+
+# SQLMap：注入相关特征 → CWE
+SQLMAP_RULES = [
+    (r"is vulnerable|injectable|sqlmap identified",
+                                "SQL 注入确认", "CWE-89", "已确认存在 SQL 注入，可读取/篡改数据库数据", "high"),
+    (r"Parameter:\s*(\S+)",    "注入参数定位", "CWE-89", "定位到了可注入的参数，可据此进一步利用", "high"),
+    (r"back-end DBMS",          "数据库类型识别", "CWE-200", "识别出后端数据库类型，便于针对性攻击", "low"),
+    (r"current user|current-db", "数据库账号信息", "CWE-200", "获取到数据库账号/库名，可用于横向渗透", "medium"),
+    (r"password|hash",          "凭据泄露", "CWE-522", "可能拖出了账号密码或哈希，注意口令复用风险", "high"),
+    (r"\bDBA\b|is DBA",       "数据库高权限", "CWE-250", "数据库账号权限较高，可能可提权或读写文件", "high"),
+]
+
+
+def match_rules(tool: str, output: str) -> list:
+    """按规则表匹配扫描输出，返回命中的漏洞提示（不查 NVD，直接给结论）。"""
+    rules = []
+    if tool == "dirsearch":
+        rules = DIRSEARCH_RULES
+    elif tool == "sqlmap":
+        rules = SQLMAP_RULES
+    if not rules:
+        return []
+
+    hits, seen = [], set()
+    lines = output.splitlines()
+    for pattern, name, cwe, desc, level in rules:
+        rx = re.compile(pattern, re.I)
+        for i, line in enumerate(lines):
+            if len(line) > 400:
+                continue
+            if rx.search(line):
+                if name in seen:
+                    break
+                seen.add(name)
+                hits.append({
+                    "kind": "rule",
+                    "id": cwe,
+                    "title": name,
+                    "desc": desc,
+                    "severity": level.upper() if level in ("high", "medium", "low") else "MEDIUM",
+                    "confidence": "high",
+                    "confidence_label": "规则命中",
+                    "matched_on": line.strip()[:120],
+                    "source_tool": tool,
+                })
+                break
+    return hits
+
+# ============ CVE：AI 补充（规则没命中时才用）============
+
+async def ai_supplement_cve(sources: list, existing: list):
+    """规则未覆盖时，让 AI 从扫描结果里找可疑点。返回 ([命中], 错误信息)"""
+    if not get_ai_configured():
+        return [], ""
+
+    # 汇总各任务的输出摘要
+    parts = []
+    for s in sources:
+        rec = get_record(s.get("task_id"))
+        if not rec:
+            continue
+        lines = rec.get("lines", [])
+        snippet = "\n".join([l for l in lines if l.strip()][:120])
+        if not snippet.strip():
+            continue
+        parts.append(f"【{s['display']} 扫描 {s['target']}】\n{snippet[:3000]}")
+
+    if not parts:
+        return [], ""
+
+    joined = "\n\n".join(parts)[:6000]
+
+    prompt = (
+        "你是安全分析助手。下面是若干次安全扫描的输出。请基于这些输出，判断目标可能存在哪些"
+        "常见漏洞类型（不要求给出精确 CVE 编号，给漏洞类型和 CWE 更可靠）。\n\n"
+        "严格要求：\n"
+        "1. 只依据输出里【确实出现】的信息判断，不要凭空猜测；\n"
+        "2. 没有把握就不要输出；\n"
+        "3. 最多给 5 条；\n"
+        "4. 只输出 JSON，不要任何多余文字，格式：\n"
+        '{"items":[{"title":"漏洞名","cwe":"CWE-xxx","desc":"一句话说明为什么这么判断",'
+        '"severity":"high/medium/low","evidence":"输出里的依据片段"}]}\n\n'
+        f"扫描输出：\n{joined}"
+    )
+
+    messages = [
+        {"role": "system", "content": "你是严谨的网络安全分析助手，只根据给定信息判断，不确定就不说。"},
+        {"role": "user", "content": prompt},
+    ]
+
+    text, err = call_ai(messages, temperature=0.2)
+    if err:
+        return [], err
+
+    # 解析 JSON
+    try:
+        t = (text or "").strip()
+        if t.startswith("```"):
+            t = t.strip("`").strip()
+            if t.lower().startswith("json"):
+                t = t[4:].strip()
+        s, e = t.find("{"), t.rfind("}")
+        if s == -1 or e <= s:
+            return [], ""
+        data = json.loads(t[s:e + 1])
+    except Exception:
+        return [], ""
+
+    out = []
+    for it in (data.get("items") or [])[:5]:
+        title = str(it.get("title", "")).strip()
+        if not title:
+            continue
+        out.append({
+            "kind": "ai",
+            "id": str(it.get("cwe", "")).strip() or "AI",
+            "title": title,
+            "desc": str(it.get("desc", "")).strip(),
+            "severity": str(it.get("severity", "medium")).upper(),
+            "confidence": "medium",
+            "confidence_label": "AI 推测",
+            "matched_on": str(it.get("evidence", "")).strip()[:120],
+            "source_tool": "ai",
+        })
+    return out, ""

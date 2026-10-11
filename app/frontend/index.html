@@ -29,9 +29,9 @@
     /* ===== 白色主题（覆盖变量）——强调色用黑色系 ===== */
     body.theme-light {
       --navy-deep: #eef1f6;
-      --text-bright: #14181f;
-      --text-body: #3d4553;
-      --text-dim: #6b7482;
+      --text-bright: #0d1117;
+      --text-body: #232a35;
+      --text-dim: #4a5563;
       --line: rgba(20, 30, 50, 0.14);
       --line-bright: #14181f;
       --glass: rgba(255, 255, 255, 0.55);
@@ -71,6 +71,16 @@
     body.theme-light .pitem input::placeholder,
     body.theme-light .modal input::placeholder { color: #98a1b0; }
     body.theme-light select option { background: #ffffff; color: #14181f; }
+
+    /* 白色主题：把原本为深色背景设计的浅色文字加深，避免看不清 */
+    body.theme-light #output { color: #2a3240; }
+    body.theme-light #output .sys { color: #5a6472; }
+    body.theme-light .chain-name { color: #232a35; }
+    body.theme-light .chain-desc { color: #4a5563; }
+    body.theme-light .guidance-line .g-label { color: #1f6b45; }
+    body.theme-light .vendor-name { color: #3d4553; }
+    body.theme-light .modal input::placeholder { color: #7b8595; }
+    body.theme-light .pitem input::placeholder { color: #7b8595; }
     body.theme-light .mini-btn { color: #3d4553; border-color: rgba(20,30,50,0.16); }
     body.theme-light .mini-btn:hover { border-color: #14181f; color: #14181f; }
     body.theme-light .icon-btn:hover { border-color: #14181f; color: #14181f; }
@@ -375,6 +385,14 @@
     }
     #output .sys { color: var(--text-dim); }
     #output .err { color: var(--red); }
+    /* 扫描命中结果高亮 */
+    #output .hit-ok { color: #2ea44f; font-weight: 600; }
+    #output .hit-redirect { color: #0969da; font-weight: 600; }
+    #output .hit-deny { color: #9a6700; }
+    #output .hit-err { color: var(--red); }
+    body.theme-light #output .hit-ok { color: #1a7f37; }
+    body.theme-light #output .hit-redirect { color: #0550ae; }
+    body.theme-light #output .hit-deny { color: #7d4e00; }
 
     /* ===== AI 解读面板（终端下面） ===== */
     .ai-panel { padding: 1.1rem 1.2rem; }
@@ -497,7 +515,17 @@
     .guidance-line .g-label { color: #9ec7f2; font-weight: 600; }
 
     /* ===== CVE 面板 ===== */
-    .cve-panel { padding: 1rem 1.2rem; }
+    .cve-panel {
+      padding: 1rem 1.2rem 1rem 1.1rem;
+      border-left: 4px solid #6cbf8f;
+      background: linear-gradient(90deg, rgba(108,191,143,0.10), rgba(108,191,143,0.02) 45%, transparent 70%);
+    }
+    body.theme-light .cve-panel {
+      border-left-color: #4ea877;
+      background: linear-gradient(90deg, rgba(108,191,143,0.16), rgba(108,191,143,0.04) 45%, transparent 70%);
+    }
+    .cve-panel .panel-title { color: #3f9d6d; }
+    body.theme-light .cve-panel .panel-title { color: #1f6b45; }
     .cve-head { display: flex; align-items: center; justify-content: space-between; gap: 0.8rem; margin-bottom: 0.5rem; }
     .cve-head .panel-title { margin-bottom: 0; }
     .cve-btn {
@@ -508,6 +536,35 @@
     .cve-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .cve-hint { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.8rem; line-height: 1.5; }
     .cve-list { display: flex; flex-direction: column; gap: 0.7rem; }
+    .cve-picks {
+      display: flex; flex-direction: column; gap: 0.4rem; margin-bottom: 0.9rem;
+      border: 1.5px dashed rgba(108, 191, 143, 0.55); border-radius: 12px;
+      padding: 0.8rem 0.9rem; background: rgba(108, 191, 143, 0.06);
+    }
+    body.theme-light .cve-picks { background: rgba(108, 191, 143, 0.10); }
+    .cve-picks-title {
+      font-size: 0.76rem; font-weight: 700; color: #3f9d6d; margin-bottom: 0.2rem;
+      letter-spacing: 0.03em;
+    }
+    body.theme-light .cve-picks-title { color: #1f6b45; }
+    .cve-picks:empty { display: none; }
+    .cve-pick {
+      display: flex; align-items: center; gap: 0.6rem; padding: 0.5rem 0.7rem;
+      border: 1px solid var(--line); border-radius: 9px; cursor: pointer;
+      font-size: 0.8rem; color: var(--text-body); transition: all .15s ease;
+    }
+    .cve-pick:hover { border-color: var(--line-bright); }
+    .cve-pick input { accent-color: var(--line-bright); width: 15px; height: 15px; flex-shrink: 0; }
+    .cve-pick .cp-tool { font-weight: 600; color: var(--text-bright); flex-shrink: 0; }
+    .cve-pick .cp-target { font-family: var(--mono); font-size: 0.75rem; color: var(--text-dim);
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .cve-kind {
+      font-size: 0.64rem; padding: 0.1rem 0.4rem; border-radius: 4px;
+      border: 1px solid var(--line); color: var(--text-dim);
+    }
+    .cve-kind.rule { border-color: rgba(65,208,124,0.5); color: var(--green); }
+    .cve-kind.ai { border-color: rgba(224,179,74,0.5); color: var(--amber); }
+    .cve-kind.cve { border-color: rgba(93,168,255,0.5); color: var(--line-bright); }
     .cve-empty { font-size: 0.85rem; color: var(--text-dim); padding: 0.6rem 0; }
     .cve-card {
       border: 1px solid var(--line); border-radius: 12px; padding: 0.85rem 1rem;
@@ -525,6 +582,13 @@
     .cve-sev.low { background: #4a7a44; }
     .cve-sev.unknown { background: #6b7482; }
     .cve-score { font-size: 0.72rem; color: var(--text-dim); }
+    .cve-conf {
+      font-size: 0.66rem; padding: 0.1rem 0.45rem; border-radius: 999px;
+      border: 1px solid var(--line); color: var(--text-dim);
+    }
+    .cve-conf.high { border-color: rgba(65, 208, 124, 0.5); color: var(--green); }
+    .cve-conf.medium { border-color: rgba(224, 179, 74, 0.5); color: var(--amber); }
+    .cve-conf.low { border-color: var(--line); color: var(--text-dim); }
     .cve-desc { font-size: 0.82rem; color: var(--text-body); line-height: 1.6; margin-bottom: 0.5rem; }
     .cve-meta { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.6rem; }
     .cve-meta code { font-family: var(--mono); color: var(--line-bright); }
@@ -809,14 +873,17 @@
           <div class="timeline" id="timeline"></div>
         </div>
 
-        <div class="cve-panel glass">
+                <div class="cve-panel glass">
           <div class="cve-head">
-            <div class="panel-title">可能的 CVE 漏洞</div>
-            <button class="cve-btn" id="cve-btn">检测 CVE</button>
+            <div class="panel-title">漏洞检测（CVE / 风险提示）</div>
+            <button class="cve-btn" id="cve-btn">开始检测</button>
           </div>
-          <div class="cve-hint">根据扫描结果中的产品/版本特征，查询 NVD 官方数据库。结果仅供参考，请自行核实。</div>
+          <div class="cve-hint">
+            先勾选要检测的扫描任务。Nmap 走 NVD 官方库精确查 CVE；DirSearch / SQLMap 走规则匹配（路径与注入特征）；规则没覆盖时会用 AI 补充。结果仅供参考，请自行核实。
+          </div>
+          <div class="cve-picks" id="cve-picks"></div>
           <div class="cve-list" id="cve-list"></div>
-        </div>
+        </div>        </div>
       </div>
     </div>
   </div>
@@ -941,14 +1008,10 @@
     const TKEY = 'intrusion_session_token';
     function getStageRecords() { try { return JSON.parse(localStorage.getItem(SKEY) || '{}'); } catch { return {}; } }
     function saveStageRecords(r) { localStorage.setItem(SKEY, JSON.stringify(r)); }
-    // 若服务端会话变了（重启过），清掉浏览器里残留的轨迹记录，保证每次打开都是全新的
+    // 历史改为跨会话保留：不再因为服务重启而清空本地的轨迹记录
     function syncSession(token) {
       if (!token) return;
-      const last = localStorage.getItem(TKEY);
-      if (last !== token) {
-        localStorage.removeItem(SKEY);
-        localStorage.setItem(TKEY, token);
-      }
+      localStorage.setItem(TKEY, token);
     }
     let recordingStage = null;
 
@@ -1186,10 +1249,43 @@
     }
 
     // ===== 输出区 =====
+    // 判断是否是可忽略的进度条噪音（dirsearch 的 [===] 47% 12/9345 这类）
+    function isProgressNoise(t) {
+      if (!t) return true;
+      // 带百分号和计数的进度条
+      if (/\d+%/.test(t) && /\d+\/\d+/.test(t)) return true;
+      // 纯进度条框体
+      if (/^[\s\[\]=>#.\-]*$/.test(t)) return true;
+      // 只含速率/耗时统计
+      if (/^\s*\d+\/\d+\s+\d+\/s/.test(t)) return true;
+      return false;
+    }
+
+    // 判断是否是扫描命中行。支持两种格式：
+    //   "200   8KB  http://..."          （报告格式）
+    //   "[17:46:38] 301 - 0B - /api"      （dirsearch 终端格式）
+    function hitClass(t) {
+      let code = '';
+      let m = t.match(/^\s*(\d{3})\s/);
+      if (m) code = m[1];
+      if (!code) {
+        m = t.match(/^\[\d{2}:\d{2}:\d{2}\]\s*(\d{3})\s/);
+        if (m) code = m[1];
+      }
+      if (!code) return '';
+      if (code.startsWith('2')) return 'hit-ok';
+      if (code.startsWith('3')) return 'hit-redirect';
+      if (code.startsWith('4')) return 'hit-deny';
+      if (code.startsWith('5')) return 'hit-err';
+      return '';
+    }
+
     function writeOutput(text, cls) {
+      if (isProgressNoise(text)) return;
       const out = $('output');
       const line = document.createElement('div');
-      if (cls) line.className = cls;
+      const hc = cls || hitClass(text);
+      if (hc) line.className = hc;
       line.textContent = text;
       out.appendChild(line);
       out.scrollTop = out.scrollHeight;
@@ -1372,7 +1468,7 @@
     function switchPage(page) {
       document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.page === page));
       document.querySelectorAll('.page').forEach(p => p.classList.toggle('active', p.id === 'page-' + page));
-      if (page === 'trajectory') loadTrajectory();
+      if (page === 'trajectory') { loadTrajectory(); renderCvePicks(); }
     }
     function goConsole() { switchPage('console'); }
     function goTool(tool) { switchPage('console'); selectTool(tool); }
@@ -1783,7 +1879,9 @@
     $('appearance-modal').addEventListener('click', (e) => {
       if (e.target === $('appearance-modal')) $('appearance-modal').classList.remove('show');
     });
-    // ================= CVE 检测 =================
+        // ================= CVE / 漏洞检测 =================
+    const CVE_SEL = 'intrusion_cve_selected';
+
     function cveSeverityClass(sev) {
       const s = (sev || '').toUpperCase();
       if (s === 'CRITICAL') return 'critical';
@@ -1793,13 +1891,61 @@
       return 'unknown';
     }
 
-    function renderCveList(items, note) {
+    function kindLabel(k) {
+      if (k === 'rule') return '规则';
+      if (k === 'cve') return 'NVD';
+      if (k === 'ai') return 'AI';
+      return k || '';
+    }
+
+    // 渲染「选择要检测的任务」
+    async function renderCvePicks() {
+      const box = $('cve-picks');
+      if (!box) return;
+      let items = [];
+      try {
+        const res = await fetch('/api/history');
+        items = await res.json();
+      } catch (e) { items = []; }
+
+      // 只要有输出、且状态不是 running 的
+      const usable = (items || []).filter(r => r.status !== 'running' && r.tool !== 'ai');
+      if (!usable.length) {
+        box.innerHTML = '<div class="cve-empty">还没有可检测的扫描任务，先去控制台跑一次扫描。</div>';
+        return;
+      }
+
+      let saved = [];
+      try { saved = JSON.parse(localStorage.getItem(CVE_SEL) || '[]'); } catch (e) { saved = []; }
+
+      box.innerHTML = '<div class="cve-picks-title">选择要检测的任务（可多选）</div>';
+      usable.slice(0, 12).forEach(r => {
+        const id = r.id;
+        const checked = saved.includes(id) ? 'checked' : '';
+        const label = document.createElement('label');
+        label.className = 'cve-pick';
+        label.innerHTML =
+          '<input type="checkbox" value="' + id + '" ' + checked + '>' +
+          '<span class="cp-tool">' + (r.display || r.tool) + '</span>' +
+          '<span class="cp-target">' + escapeHtml(r.target || '') + '</span>';
+        box.appendChild(label);
+      });
+
+      box.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          const sel = Array.from(box.querySelectorAll('input:checked')).map(x => x.value);
+          localStorage.setItem(CVE_SEL, JSON.stringify(sel));
+        });
+      });
+    }
+
+    function renderCveItems(items, note, aiNote) {
       const box = $('cve-list');
       box.innerHTML = '';
       if (!items || !items.length) {
         const d = document.createElement('div');
         d.className = 'cve-empty';
-        d.textContent = note || '暂无匹配的 CVE。可以先跑一次 Nmap 扫描，再点这里检测。';
+        d.textContent = note || '未匹配到相关信息。';
         box.appendChild(d);
         return;
       }
@@ -1808,59 +1954,73 @@
         card.className = 'cve-card';
         const sev = (it.severity || '').toUpperCase();
         const scoreTxt = it.score != null ? ('CVSS ' + it.score) : '';
-        const desc = (it.desc || '').replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        card.innerHTML = `
-          <div class="cve-card-top">
-            <span class="cve-id">${it.id}</span>
-            <span class="cve-sev ${cveSeverityClass(sev)}">${sev || '未知'}</span>
-            <span class="cve-score">${scoreTxt}</span>
-          </div>
-          <div class="cve-desc">${desc || '（无描述）'}</div>
-          <div class="cve-meta">匹配依据：<code>${(it.matched_on || '').replace(/</g,'&lt;')}</code></div>
-          <div class="cve-links">
-            <a class="cve-link primary" href="${it.url}" target="_blank" rel="noopener">NVD 详情</a>
-            <a class="cve-link" href="https://www.cve.org/CVERecord?id=${it.id}" target="_blank" rel="noopener">CVE.org</a>
-          </div>
-        `;
+        const kind = it.kind || (it.url ? 'cve' : 'rule');
+        const desc = escapeHtml(it.desc || '');
+        const title = escapeHtml(it.title || it.id || '');
+        const evid = escapeHtml(it.matched_on || '').slice(0, 160);
+
+        let links = '';
+        if (it.url) {
+          links = '<a class="cve-link primary" href="' + it.url + '" target="_blank" rel="noopener">NVD 详情</a>' +
+                  '<a class="cve-link" href="https://www.cve.org/CVERecord?id=' + it.id + '" target="_blank" rel="noopener">CVE.org</a>';
+        } else if ((it.id || '').startsWith('CWE-')) {
+          links = '<a class="cve-link" href="https://cwe.mitre.org/data/definitions/' + it.id.replace('CWE-', '') + '.html" target="_blank" rel="noopener">CWE 详情</a>';
+        }
+
+        card.innerHTML =
+          '<div class="cve-card-top">' +
+            '<span class="cve-kind ' + kind + '">' + kindLabel(kind) + '</span>' +
+            '<span class="cve-id">' + title + '</span>' +
+            (sev ? '<span class="cve-sev ' + cveSeverityClass(sev) + '">' + sev + '</span>' : '') +
+            (scoreTxt ? '<span class="cve-score">' + scoreTxt + '</span>' : '') +
+            '<span class="cve-conf ' + (it.confidence || 'low') + '">' + (it.confidence_label || '参考') + '</span>' +
+          '</div>' +
+          '<div class="cve-desc">' + desc + '</div>' +
+          (evid ? '<div class="cve-meta">依据：<code>' + evid + '</code></div>' : '') +
+          (it.target ? '<div class="cve-meta">目标：<code>' + escapeHtml(it.target) + '</code></div>' : '') +
+          (links ? '<div class="cve-links">' + links + '</div>' : '');
         box.appendChild(card);
       });
+
+      if (aiNote) {
+        const n = document.createElement('div');
+        n.className = 'cve-empty';
+        n.textContent = aiNote;
+        box.appendChild(n);
+      }
     }
 
     async function detectCve() {
       const btn = $('cve-btn');
-      // 选一个已完成的扫描任务（优先最近一次有输出的）
-      const recs = Object.values(getStageRecords());
-      let taskId = currentRecordId;
-      if (!taskId) {
-        const box = $('cve-list');
-        box.innerHTML = '<div class="cve-empty">请先在控制台跑一次扫描，再回到这里检测 CVE。</div>';
+      const picks = Array.from(document.querySelectorAll('#cve-picks input:checked')).map(x => x.value);
+      if (!picks.length) {
+        $('cve-list').innerHTML = '<div class="cve-empty">请先勾选要检测的扫描任务。</div>';
         return;
       }
       btn.disabled = true;
       btn.textContent = '检测中…';
-      $('cve-list').innerHTML = '<div class="cve-empty">正在查询 NVD 数据库，请稍候（可能需要十几秒）…</div>';
+      $('cve-list').innerHTML = '<div class="cve-empty">正在检测（Nmap 查 NVD 可能需要十几秒）…</div>';
       try {
         const res = await fetch('/api/cve/scan', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ task_id: taskId })
+          body: JSON.stringify({ task_ids: picks, use_ai: true })
         });
         const data = await res.json();
         if (data.error) {
-          $('cve-list').innerHTML = '<div class="cve-empty">' + data.error + '</div>';
+          $('cve-list').innerHTML = '<div class="cve-empty">' + escapeHtml(data.error) + '</div>';
         } else {
-          renderCveList(data.matched, data.note);
+          renderCveItems(data.items, data.note, data.ai_note);
         }
       } catch (e) {
-        $('cve-list').innerHTML = '<div class="cve-empty">查询失败：' + e + '</div>';
+        $('cve-list').innerHTML = '<div class="cve-empty">检测失败：' + escapeHtml(String(e)) + '</div>';
       } finally {
         btn.disabled = false;
-        btn.textContent = '检测 CVE';
+        btn.textContent = '开始检测';
       }
     }
 
     $('cve-btn').addEventListener('click', detectCve);
-
     $('appearance-btn').addEventListener('click', openAppearanceModal);
 
     $('ai-settings-btn').addEventListener('click', openAiModal);
@@ -1891,6 +2051,7 @@
       await loadTools();
       renderParams();
       loadHistory();
+      renderCvePicks();
     })();
   </script>
 </body>
