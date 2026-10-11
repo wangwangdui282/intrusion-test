@@ -1,4 +1,4 @@
-# 第三方工具与便携运行时：体积大、各有许可，不纳入版本库
+﻿# 第三方工具与便携运行时：体积大、各有许可，不纳入版本库
 tools/
 runtime/
 python/
@@ -27,3 +27,9 @@ config.json
 .idea/
 Thumbs.db
 desktop.ini
+
+# 运行日志与临时产物（不入库）
+agh日志/
+logs/
+logs_v16_*.txt
+*.bak

@@ -1,0 +1,38 @@
+============================= test session starts =============================
+platform win32 -- Python 3.14.6, pytest-9.1.1, pluggy-1.6.0 -- C:\Users\qwasz\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\runtime\python\python.exe
+cachedir: .pytest_cache
+rootdir: C:\Users\qwasz
+plugins: anyio-4.15.1
+collecting ... collected 29 items
+
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_000_service_up PASSED [  3%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_001_run_nmap_success PASSED [  6%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_002_run_unknown_tool PASSED [ 10%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_003_run_empty_target PASSED [ 13%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_004_run_tool_path_missing PASSED [ 17%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_005_stream_running_task PASSED [ 20%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_006_stream_not_found PASSED [ 24%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_007_stop_running_task PASSED [ 27%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_008_stop_missing_task PASSED [ 31%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_009_history_list PASSED [ 34%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_010_scan_detail_not_found PASSED [ 37%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_011_ai_analyze_success PASSED [ 41%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_012_ai_analyze_task_not_found PASSED [ 44%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_013_ai_analyze_not_configured PASSED [ 48%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_014_ai_analyze_service_failure PASSED [ 51%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_015_ai_stage_success PASSED [ 55%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_016_ai_stage_unknown_tool PASSED [ 58%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_017_ai_stage_not_configured PASSED [ 62%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_018_ai_stage_no_output_for_tool PASSED [ 65%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_019_put_ai_settings PASSED [ 68%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_020_get_settings PASSED [ 72%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_021_put_tool_settings PASSED [ 75%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_022_put_appearance_ok PASSED [ 79%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_023_put_appearance_oversized_background PASSED [ 82%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_024_delete_background PASSED [ 86%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_025_cve_scan_success PASSED [ 89%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_026_cve_scan_no_output PASSED [ 93%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_027_cve_scan_no_version_feature PASSED [ 96%]
+..\..\Documents\WeChat Files\wxid_rrm2xqot77ib22\FileStorage\File\2026-10\intrusion-test  v1.5\test_api.py::test_API_028_cve_scan_task_not_found PASSED [100%]
+
+============================= 29 passed in 25.69s =============================
