@@ -1,0 +1,80 @@
+{
+  "agh": {
+    "version": "0.0.0"
+  },
+  "runtime": {
+    "platform": "win32",
+    "arch": "x64",
+    "osRelease": "10.0.26200",
+    "node": "24.21.0",
+    "pid": 14172,
+    "uptimeMs": 32156173
+  },
+  "profile": {
+    "name": "local-dev",
+    "resolvedProfileHash": "sha256-4f87bb7fcd4a6ac5579894bf1993c961e360661a1807d317cf38bbb6322d06d4",
+    "presets": {
+      "default": "standard-windows",
+      "allowed": [
+        "standard-windows"
+      ]
+    },
+    "models": [
+      {
+        "route": "account-acct-9726dee5-8f5a-4588-aa8f-9439cbf3a711",
+        "id": "agnes-3.0-flash",
+        "reasoning": false,
+        "contextWindow": 200000,
+        "defaultSettings": {}
+      }
+    ]
+  },
+  "config": {
+    "profile": "local-dev",
+    "revision": 1,
+    "configured": true,
+    "accounts": [
+      {
+        "accountId": "acct-9726dee5-8f5a-4588-aa8f-9439cbf3a711",
+        "label": "12",
+        "providerId": "agnes-ai",
+        "route": "account-acct-9726dee5-8f5a-4588-aa8f-9439cbf3a711",
+        "baseUrl": "https://api.agnes-ai.cn/v1",
+        "model": "agnes-3.0-flash",
+        "models": [
+          {
+            "id": "agnes-3.0-flash",
+            "name": "Agnes 3.0 Flash",
+            "reasoning": false,
+            "contextWindow": 200000,
+            "defaultSettings": {}
+          }
+        ],
+        "enabled": true,
+        "authType": "api-key",
+        "credentialConfigured": true
+      }
+    ],
+    "defaultAccountId": "acct-9726dee5-8f5a-4588-aa8f-9439cbf3a711",
+    "effect": "new-sessions",
+    "provider": {
+      "id": "agnes-ai",
+      "route": "account-acct-9726dee5-8f5a-4588-aa8f-9439cbf3a711",
+      "baseUrl": "https://api.agnes-ai.cn/v1",
+      "model": "agnes-3.0-flash",
+      "credentialConfigured": true
+    }
+  },
+  "browser": {
+    "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/154.0.0.0 Safari/537.36",
+    "language": "zh-CN",
+    "platform": "Win32",
+    "timeZone": "Asia/Shanghai",
+    "screen": {
+      "width": 1707,
+      "height": 1067,
+      "dpr": 1.5
+    },
+    "origin": "http://127.0.0.1:4177"
+  }
+}

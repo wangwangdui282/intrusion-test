@@ -1,0 +1,22 @@
+{
+  "collectedAt": "2026-10-10T16:30:38.074Z",
+  "entries": [
+    {
+      "ts": "2026-10-10T12:51:56.460Z",
+      "level": "error",
+      "text": "Warning: flushSync was called from inside a lifecycle method. React cannot flush when React is already rendering. Consider moving this call to a scheduler task or micro task.%s \n    at Composer2 (http://127.0.0.1:4177/app.js:3732:3)\n    at div\n    at SlotsProvider (http://127.0.0.1:4177/vendor/web-client.js:1473:3)\n    at EntryView (http://127.0.0.1:4177/vendor/web-client.js:1631:11)\n    at div\n    at SlotEntryBoundary (http://127.0.0.1:4177/vendor/web-client.js:1602:25)\n    at div\n    at SlotOutlet (http://127.0.0.1:4177/vendor/web-client.js:1491:20)\n    at EntryView (http://127.0.0.1:4177/vendor/web-client.js:1631:11)\n    at div\n    at SlotEntryBoundary (http://127.0.0.1:4177/vendor/web-client.js:1602:25)\n    at div\n    at SlotOutlet (http://127.0.0.1:4177/vendor/web-client.js:1491:20)\n    at SlotsProvider (http://127.0.0.1:4177/vendor/web-client.js:1473:3)\n    at MotionWrapper (http://127.0.0.1:4177/vendor/antd.js:12125:32)\n    at ProviderChildren (http://127.0.0.1:4177/vendor/antd.js:12225:5)\n    at ConfigProvider (http://127.0.0.1:4177/vendor/antd.js:12560:27)"
+    },
+    {
+      "ts": "2026-10-10T12:51:56.974Z",
+      "level": "error",
+      "text": "Warning: flushSync was called from inside a lifecycle method. React cannot flush when React is already rendering. Consider moving this call to a scheduler task or micro task.%s \n    at Composer2 (http://127.0.0.1:4177/app.js:3732:3)\n    at div\n    at SlotsProvider (http://127.0.0.1:4177/vendor/web-client.js:1473:3)\n    at EntryView (http://127.0.0.1:4177/vendor/web-client.js:1631:11)\n    at div\n    at SlotEntryBoundary (http://127.0.0.1:4177/vendor/web-client.js:1602:25)\n    at div\n    at SlotOutlet (http://127.0.0.1:4177/vendor/web-client.js:1491:20)\n    at EntryView (http://127.0.0.1:4177/vendor/web-client.js:1631:11)\n    at div\n    at SlotEntryBoundary (http://127.0.0.1:4177/vendor/web-client.js:1602:25)\n    at div\n    at SlotOutlet (http://127.0.0.1:4177/vendor/web-client.js:1491:20)\n    at SlotsProvider (http://127.0.0.1:4177/vendor/web-client.js:1473:3)\n    at MotionWrapper (http://127.0.0.1:4177/vendor/antd.js:12125:32)\n    at ProviderChildren (http://127.0.0.1:4177/vendor/antd.js:12225:5)\n    at ConfigProvider (http://127.0.0.1:4177/vendor/antd.js:12560:27)"
+    },
+    {
+      "ts": "2026-10-10T12:51:57.278Z",
+      "level": "error",
+      "text": "Warning: flushSync was called from inside a lifecycle method. React cannot flush when React is already rendering. Consider moving this call to a scheduler task or micro task.%s \n    at Composer2 (http://127.0.0.1:4177/app.js:3732:3)\n    at div\n    at SlotsProvider (http://127.0.0.1:4177/vendor/web-client.js:1473:3)\n    at EntryView (http://127.0.0.1:4177/vendor/web-client.js:1631:11)\n    at div\n    at SlotEntryBoundary (http://127.0.0.1:4177/vendor/web-client.js:1602:25)\n    at div\n    at SlotOutlet (http://127.0.0.1:4177/vendor/web-client.js:1491:20)\n    at EntryView (http://127.0.0.1:4177/vendor/web-client.js:1631:11)\n    at div\n    at SlotEntryBoundary (http://127.0.0.1:4177/vendor/web-client.js:1602:25)\n    at div\n    at SlotOutlet (http://127.0.0.1:4177/vendor/web-client.js:1491:20)\n    at SlotsProvider (http://127.0.0.1:4177/vendor/web-client.js:1473:3)\n    at MotionWrapper (http://127.0.0.1:4177/vendor/antd.js:12125:32)\n    at ProviderChildren (http://127.0.0.1:4177/vendor/antd.js:12225:5)\n    at ConfigProvider (http://127.0.0.1:4177/vendor/antd.js:12560:27)"
+    }
+  ],
+  "dropped": 0,
+  "limit": 1000
+}

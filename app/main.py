@@ -8,6 +8,7 @@ import threading
 import time
 import urllib.error
 import urllib.request
+from urllib.parse import urlparse
 import uuid
 from pathlib import Path
 from typing import Optional
@@ -32,13 +33,16 @@ SETTINGS_FILE = DATA_DIR / "settings.json"
 # 便携 Python（随项目打包，免安装）。存在就用它，保证换电脑也能跑。
 BUNDLED_PYTHON = BASE_DIR / "runtime" / "python" / "python.exe"
 
+_PY = str(BUNDLED_PYTHON) if BUNDLED_PYTHON.exists() else sys.executable
+
 DEFAULT_TOOL_PATHS = {
     "nmap": str(TOOLS_DIR / "nmap" / "nmap.exe"),
-    "sqlmap": str(TOOLS_DIR / "sqlmap" / "sqlmap.py"),
-    # dirsearch 用启动器跑（启动器会把 dirsearch 目录加进 sys.path）
+    # sqlmap / dirsearch 都用启动器跑：
+    # 便携 Python 的 sys.path 不含脚本目录，启动器会把它加进去，否则会报 missing modules
+    "sqlmap": str(BASE_DIR / "runtime" / "run_sqlmap.py"),
+    "sqlmap_python": _PY,
     "dirsearch": str(BASE_DIR / "runtime" / "run_dirsearch.py"),
-    # 用项目自带的便携 Python 跑 dirsearch；没有则回退到主程序自己的解释器
-    "dirsearch_python": str(BUNDLED_PYTHON) if BUNDLED_PYTHON.exists() else sys.executable,
+    "dirsearch_python": _PY,
 }
 
 TOOL_META = {
@@ -241,7 +245,7 @@ def _build_nmap(target: str, p: dict) -> list:
 
 
 def _build_sqlmap(target: str, p: dict) -> list:
-    cmd = [sys.executable, get_tool_path("sqlmap")]
+    cmd = [get_tool_path("sqlmap_python"), get_tool_path("sqlmap")]
     mode = p.get("mode", "url")
 
     # 注入方式
@@ -701,8 +705,56 @@ async def scan_detail(scan_id: str):
 
 
 # ============ 路由：AI 解读 ============
+def extract_analysis_text(rec: dict) -> str:
+    """为 AI 分析抽取有意义的输出文本。
+
+    DirSearch 会刷出海量进度条，真正的发现行（带状态码）会被末尾 8000 字截断吃掉，
+    因此对 dirsearch 单独抽取状态码结果行，避免 AI 只看到进度条而误判“无发现”。
+    若内存里的 lines 因竞态丢失了发现，则回退到 dirsearch 自动生成的报告文件。
+    """
+    lines = rec.get("lines", []) or []
+    if rec.get("tool") == "dirsearch":
+        pat = re.compile(r"^\s*\[\d{1,2}:\d{2}:\d{2}\]\s*\d{3}\s+-\s|Task Completed|ERROR|Exception|Traceback", re.I)
+        keep = [l for l in lines if pat.search(l)]
+        if not keep:
+            keep = _dirsearch_report_findings(rec.get("target", ""))
+        if keep:
+            return "\n".join(keep)[-8000:]
+    return "\n".join(lines)[-8000:]
+
+
+def _dirsearch_report_findings(target: str) -> list:
+    """从 dirsearch 自动写入的报告文件里捞发现行，作为 lines 丢失时的兜底。
+
+    DirSearch 默认会把结果写到 tools/dirsearch/reports/http_<host>/ 下，
+    该文件由 dirsearch 自身写盘，不会像内存 lines 那样在并发保存时丢失。
+    """
+    try:
+        host = urlparse(target).hostname or ""
+    except Exception:
+        host = ""
+    if not host:
+        return []
+    rep_dir = TOOLS_DIR / "dirsearch" / "reports" / f"http_{host}"
+    if not rep_dir.is_dir():
+        return []
+    files = sorted(rep_dir.glob("*"), key=lambda p: p.stat().st_mtime, reverse=True)
+    if not files:
+        return []
+    try:
+        text = files[0].read_text(encoding="utf-8", errors="replace")
+    except Exception:
+        return []
+    out = []
+    for line in text.splitlines():
+        if re.match(r"^\s*(200|201|301|302|307|308|401|403|405|500|502|503)\s", line):
+            out.append(line.strip())
+    return out
+
+
 class AnalyzeRequest(BaseModel):
     task_id: str
+    force: bool = False
 
 
 @app.post("/api/ai/analyze")
@@ -713,9 +765,9 @@ async def ai_analyze(req: AnalyzeRequest):
         return JSONResponse({"error": "任务不存在"}, status_code=404)
     if not get_ai_configured():
         return JSONResponse({"error": "还没配置 AI，请先点右上角「AI 设置」填好服务地址、模型和密钥"}, status_code=400)
-    if rec.get("analysis"):
+    if rec.get("analysis") and not req.force:
         return JSONResponse({"analysis": rec["analysis"]})
-    output = "\n".join(rec.get("lines", []))[-8000:]
+    output = extract_analysis_text(rec)
     if not output.strip():
         output = "（该任务没有输出内容）"
     messages = [
@@ -723,11 +775,12 @@ async def ai_analyze(req: AnalyzeRequest):
         {"role": "user", "content": f"以下是安全扫描工具 {rec['display']} 对目标 {rec['target']} 的扫描输出，请用中文给出解读，包含：1) 发现了什么；2) 关键发现与风险等级；3) 可能的影响；4) 修复/防御建议。\n\n扫描输出：\n{output}"},
     ]
     text, err = call_ai(messages, temperature=0.4)
+    model_name = (SETTINGS.get("ai") or {}).get("model", "")
     if err:
-        return JSONResponse({"error": err}, status_code=502)
+        return JSONResponse({"error": err, "model": model_name}, status_code=502)
     rec["analysis"] = text
     save_records()
-    return JSONResponse({"analysis": text})
+    return JSONResponse({"analysis": text, "model": model_name})
 
 
 # ============ 路由：AI 阶段记录 ============
@@ -800,9 +853,12 @@ async def ai_stage(req: StageRequest):
         )},
     ]
     text, err = call_ai(messages, temperature=0.3)
+    model_name = (SETTINGS.get("ai") or {}).get("model", "")
     if err:
-        return JSONResponse({"error": err}, status_code=502)
-    return JSONResponse(parse_stage_json(text))
+        return JSONResponse({"error": err, "model": model_name}, status_code=502)
+    data = parse_stage_json(text)
+    data["model"] = model_name
+    return JSONResponse(data)
 
 
 # ============ 路由：设置 ============
@@ -839,6 +895,7 @@ async def put_ai_settings(req: AiSettingsRequest):
 class ToolsSettingsRequest(BaseModel):
     nmap: str = ""
     sqlmap: str = ""
+    sqlmap_python: str = ""
     dirsearch: str = ""
     dirsearch_python: str = ""
 
@@ -848,6 +905,7 @@ async def put_tools_settings(req: ToolsSettingsRequest):
     SETTINGS["tools"] = {
         "nmap": req.nmap.strip(),
         "sqlmap": req.sqlmap.strip(),
+        "sqlmap_python": req.sqlmap_python.strip(),
         "dirsearch": req.dirsearch.strip(),
         "dirsearch_python": req.dirsearch_python.strip(),
     }

@@ -508,6 +508,8 @@
     .cve-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     .cve-hint { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.8rem; line-height: 1.5; }
     .cve-list { display: flex; flex-direction: column; gap: 0.7rem; }
+    .cve-select-row { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.8rem; font-size: 0.8rem; color: var(--text-dim); }
+    .cve-select { flex: 1; background: rgba(20,30,52,0.9); color: var(--text-bright); border: 1px solid rgba(150,190,255,0.25); border-radius: 8px; padding: 0.4rem 0.5rem; font-size: 0.8rem; max-width: 100%; }
     .cve-empty { font-size: 0.85rem; color: var(--text-dim); padding: 0.6rem 0; }
     .cve-card {
       border: 1px solid var(--line); border-radius: 12px; padding: 0.85rem 1rem;
@@ -815,6 +817,12 @@
             <button class="cve-btn" id="cve-btn">检测 CVE</button>
           </div>
           <div class="cve-hint">根据扫描结果中的产品/版本特征，查询 NVD 官方数据库。结果仅供参考，请自行核实。</div>
+          <div class="cve-select-row">
+            <label for="cve-task-select">扫描任务：</label>
+            <select id="cve-task-select" class="cve-select">
+              <option value="">— 默认自动选 Nmap 版本扫描 —</option>
+            </select>
+          </div>
           <div class="cve-list" id="cve-list"></div>
         </div>
       </div>
@@ -899,8 +907,10 @@
       <div class="hint">自动检测不到时，手动填完整路径（绝对路径）即可。</div>
       <label>Nmap（nmap.exe）</label>
       <input autocomplete="off" id="tp-nmap" type="text">
-      <label>SQLMap（sqlmap.py）</label>
+      <label>SQLMap 启动器（run_sqlmap.py）</label>
       <input autocomplete="off" id="tp-sqlmap" type="text">
+      <label>SQLMap 用的 Python</label>
+      <input autocomplete="off" id="tp-sqlmap-python" type="text">
       <label>DirSearch（dirsearch.py）</label>
       <input autocomplete="off" id="tp-dirsearch" type="text">
       <label>DirSearch 用的 Python（.venv 里的 python.exe）</label>
@@ -1331,6 +1341,20 @@
           div.addEventListener('click', () => viewHistory(item.id));
           box.appendChild(div);
         }
+        // 填充 CVE 任务下拉框，并默认选中带 -sV 的 Nmap 全扫描
+        const sel = $('cve-task-select');
+        if (sel) {
+          sel.innerHTML = '<option value="">— 默认自动选 Nmap 版本扫描 —</option>';
+          let preferred = '';
+          for (const item of list) {
+            const opt = document.createElement('option');
+            opt.value = item.id;
+            opt.textContent = item.display + ' → ' + item.target + ' [' + item.status + ']';
+            sel.appendChild(opt);
+            if (item.tool === 'nmap' && item.command && /-sV/.test(item.command) && !preferred) preferred = item.id;
+          }
+          if (preferred) { sel.value = preferred; currentRecordId = preferred; }
+        }
       } catch (e) {}
     }
 
@@ -1339,6 +1363,8 @@
         const res = await fetch('/api/scan/' + scanId);
         const data = await res.json();
         currentRecordId = scanId;
+        const sel = $('cve-task-select');
+        if (sel) sel.value = scanId;
         clearOutput();
         writeOutput(`$ 历史记录：${data.display} → ${data.target}`, 'sys');
         if (data.command) writeOutput('$ 命令：' + data.command, 'sys');
@@ -1358,10 +1384,10 @@
       btn.disabled = true;
       btn.textContent = '解读中…';
       try {
-        const res = await fetch('/api/ai/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task_id: currentRecordId }) });
+        const res = await fetch('/api/ai/analyze', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ task_id: currentRecordId, force: true }) });
         const data = await res.json();
         if (data.error) { $('interpret-result').textContent = data.error; }
-        else { $('interpret-result').textContent = data.analysis; }
+        else { const _modelLine = data.model ? '（由 ' + data.model + ' 生成）' : ''; $('interpret-result').textContent = _modelLine + '\n\n' + data.analysis; }
       } catch (e) { $('interpret-result').textContent = '解读失败: ' + e.message; }
       finally { btn.disabled = false; btn.textContent = '生成解读'; }
     }
@@ -1445,6 +1471,7 @@
     function openToolsModal() {
       $('tp-nmap').value = settings.tools.nmap || '';
       $('tp-sqlmap').value = settings.tools.sqlmap || '';
+      $('tp-sqlmap-python').value = settings.tools.sqlmap_python || '';
       $('tp-dirsearch').value = settings.tools.dirsearch || '';
       $('tp-dirsearch-python').value = settings.tools.dirsearch_python || '';
       $('tools-modal').classList.add('show');
@@ -1452,7 +1479,7 @@
     async function saveTools() {
       await fetch('/api/settings/tools', {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nmap: $('tp-nmap').value.trim(), sqlmap: $('tp-sqlmap').value.trim(), dirsearch: $('tp-dirsearch').value.trim(), dirsearch_python: $('tp-dirsearch-python').value.trim() }),
+        body: JSON.stringify({ nmap: $('tp-nmap').value.trim(), sqlmap: $('tp-sqlmap').value.trim(), sqlmap_python: $('tp-sqlmap-python').value.trim(), dirsearch: $('tp-dirsearch').value.trim(), dirsearch_python: $('tp-dirsearch-python').value.trim() }),
       });
       $('tools-modal').classList.remove('show');
       await loadSettings();
@@ -1553,7 +1580,7 @@
             ? (rec.suggested_targets.map(t => `<span class="target-chip" onclick="useTarget('${STAGES[i + 1] ? STAGES[i + 1].tool : 'nmap'}', '${escapeHtml(t)}')">${escapeHtml(t)}</span>`).join(''))
             : '';
           const time = rec.recorded_at ? new Date(rec.recorded_at * 1000).toLocaleString('zh-CN') : '';
-          recHtml = `<div class="ai-note"><div class="note-head">✦ AI 阶段记录 ${rec.manual ? '（手动标记）' : ''} · ${time}</div>${escapeHtml(rec.summary)}${findings ? `<div style="margin-top:0.5rem;">${findings}</div>` : ''}${rec.next_guidance ? `<div class="guidance-line"><span class="g-label">下一步指引：</span>${escapeHtml(rec.next_guidance)}</div>` : ''}${targets ? `<div style="margin-top:0.5rem;">建议目标：${targets}</div>` : ''}</div>`;
+          recHtml = `<div class="ai-note"><div class="note-head">✦ AI 阶段记录 ${rec.model ? '（' + escapeHtml(rec.model) + '）' : ''} ${rec.manual ? '（手动标记）' : ''} · ${time}</div>${escapeHtml(rec.summary)}${findings ? `<div style="margin-top:0.5rem;">${findings}</div>` : ''}${rec.next_guidance ? `<div class="guidance-line"><span class="g-label">下一步指引：</span>${escapeHtml(rec.next_guidance)}</div>` : ''}${targets ? `<div style="margin-top:0.5rem;">建议目标：${targets}</div>` : ''}</div>`;
         } else if (state === 'current') {
           recHtml = `<div style="font-size:0.82rem;color:var(--text-dim);line-height:1.6;">扫描完成后点「AI 记录此阶段」：AI 会提炼本阶段发现，并给出下一阶段建议。</div>`;
         } else if (state === 'locked') {
@@ -1599,7 +1626,8 @@
 
     function markStage(tool) {
       const recs = getStageRecords();
-      recs[tool] = { summary: '（手动标记完成，未生成 AI 记录）', key_findings: [], next_guidance: '', suggested_targets: [], recorded_at: Date.now() / 1000, manual: true };
+      const _m = (typeof settings !== 'undefined' && settings.ai && settings.ai.model) ? settings.ai.model : '';
+      recs[tool] = { summary: '（手动标记完成，未生成 AI 记录）', model: _m, key_findings: [], next_guidance: '', suggested_targets: [], recorded_at: Date.now() / 1000, manual: true };
       saveStageRecords(recs);
       loadTrajectory();
     }
@@ -1828,6 +1856,8 @@
       // 选一个已完成的扫描任务（优先最近一次有输出的）
       const recs = Object.values(getStageRecords());
       let taskId = currentRecordId;
+      const cveSel = $('cve-task-select');
+      if (!taskId && cveSel && cveSel.value) taskId = cveSel.value;
       if (!taskId) {
         const box = $('cve-list');
         box.innerHTML = '<div class="cve-empty">请先在控制台跑一次扫描，再回到这里检测 CVE。</div>';
@@ -1857,6 +1887,8 @@
     }
 
     $('cve-btn').addEventListener('click', detectCve);
+    const cveSel = $('cve-task-select');
+    if (cveSel) cveSel.addEventListener('change', () => { currentRecordId = cveSel.value || currentRecordId; });
 
     $('appearance-btn').addEventListener('click', openAppearanceModal);
 
